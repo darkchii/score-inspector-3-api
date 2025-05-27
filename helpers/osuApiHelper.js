@@ -1,0 +1,176 @@
+const { default: axios } = require('axios');
+
+require('dotenv').config();
+
+const DEFAULT_API_VERSION = 20240529;
+
+let _local_oauth_login = {
+    current_token: null,
+    expiration_date: null
+}
+
+function getOsuClientID(){
+    if(process.env.NODE_ENV === 'development'){
+        return process.env.OSU_CLIENT_ID_DEV;
+    }
+    return process.env.OSU_CLIENT_ID;
+}
+
+function getOsuClientSecret(){
+    if(process.env.NODE_ENV === 'development'){
+        return process.env.OSU_CLIENT_SECRET_DEV;
+    }
+    return process.env.OSU_CLIENT_SECRET;
+}
+
+function getOsuClientRedirectURI(){
+    if(process.env.NODE_ENV === 'development'){
+        return process.env.OSU_CLIENT_REDIRECT_DEV;
+    }
+    return process.env.OSU_CLIENT_REDIRECT;
+}
+
+async function ClientLogin(){
+    const data = {
+        client_id: getOsuClientID(),
+        client_secret: getOsuClientSecret(),
+        grant_type: 'client_credentials',
+        scope: 'public'
+    };
+
+    try{
+        const response = await axios.post('https://osu.ppy.sh/oauth/token', data, {
+            headers: {
+                "Accept-Encoding": "gzip,deflate,compress"
+            }
+        });
+
+        if(response.status === 200 && response.data){
+            const expiresIn = response.data.expires_in || 3600; // Default to 1 hour if not provided
+            _local_oauth_login.current_token = response.data.access_token;
+            _local_oauth_login.expiration_date = new Date(Date.now() + expiresIn * 1000); // Convert seconds to milliseconds
+            return _local_oauth_login.current_token;
+        } else {
+            throw new Error('Failed to retrieve access token');
+        }
+    }catch(error){
+        console.error('Error during client login:', error);
+        throw new Error('Failed to login to osu! API');
+    }
+}
+
+async function AuthorizedApiCall(url, headers, timeout = 10000, post_body = null){
+    try{
+        const config = {
+            method: 'get',
+            url: url,
+            headers: headers,
+            timeout: timeout
+        };
+
+        if(post_body){
+            config.method = 'post';
+            config.data = post_body;
+        }
+
+        const response = await axios(config);
+
+        if(response.status === 200){
+            return response.data;
+        } else {
+            throw new Error(`API call failed with status code ${response.status}`);
+        }
+    }catch(error){
+        console.error('Error during authorized API call:', error);
+        throw new Error('Failed to make authorized API call');
+    }
+}
+
+async function AuthorizedClientApiCall(url, type = 'get', api_version = null, timeout = 10000, post_body = null){
+    if(!_local_oauth_login.current_token || new Date() >= _local_oauth_login.expiration_date){
+        await ClientLogin();
+    }
+
+    const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${_local_oauth_login.current_token}`,
+        'Accept-Encoding': 'gzip, deflate, compress',
+        'x-api-version': api_version || DEFAULT_API_VERSION
+    }
+
+    const res = await AuthorizedApiCall(url, headers, timeout, post_body);
+    return res;
+}
+
+async function AuthorizedResourceOwnerApiCall(url, access_token, type = 'get', api_version = null, timeout = 10000, post_body = null){
+    // No validation here. Website visits will validate (and refresh) the token
+    const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${access_token}`,
+        'Accept-Encoding': 'gzip, deflate, compress',
+        'x-api-version': api_version || DEFAULT_API_VERSION
+    }
+
+    const res = await AuthorizedApiCall(url, headers, timeout, post_body);
+    return res;
+}
+
+module.exports.AuthorizeCodeGrant = AuthorizeCodeGrant;
+async function AuthorizeCodeGrant(code, grant_type = 'authorization_code'){
+    const data = {
+        client_id: getOsuClientID(),
+        client_secret: getOsuClientSecret(),
+        grant_type: grant_type,
+        redirect_uri: getOsuClientRedirectURI(),
+    }
+
+    switch(grant_type){
+        case 'authorization_code':
+            data.code = code;
+            break;
+        case 'refresh_token':
+            data.refresh_token = code;
+            break;
+        default:
+            throw new Error('Invalid grant type');
+    }
+
+    try{
+        const response = await axios.post('https://osu.ppy.sh/oauth/token', data, {
+            headers: {
+                "Accept-Encoding": "gzip,deflate,compress"
+            }
+        });
+
+        const user = await GetOwnData(response.data.access_token);
+
+        if(!user || !user.id){
+            throw new Error('Invalid user data received from osu! API');
+        }
+
+        return {
+            ...response.data,
+            user_id: user.id
+        }
+    }catch(error){
+        console.error('Error during authorization code grant:', error);
+        throw new Error('Failed to authorize code grant');
+    }
+}
+
+module.exports.GetOwnData = GetOwnData;
+async function GetOwnData(access_token){
+    try{
+        const response = await AuthorizedResourceOwnerApiCall('https://osu.ppy.sh/api/v2/me', access_token, 'get');
+
+        if(response && response.id){
+            return response;
+        }
+        throw new Error('Invalid response from osu! API');
+    }catch(error){
+        console.error('Error during getting own data:', error);
+        throw new Error('Failed to get own data from osu! API');
+    }
+}
