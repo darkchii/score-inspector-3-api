@@ -1,9 +1,14 @@
 var routeAuth = require('./routeAuth');
+var routeUser = require('./routeUser');
 
 let routes = [
     {
         path: '/auth',
         route: routeAuth
+    },
+    {
+        path: '/user',
+        route: routeUser
     }
 ];
 

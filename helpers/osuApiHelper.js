@@ -174,3 +174,16 @@ async function GetOwnData(access_token){
         throw new Error('Failed to get own data from osu! API');
     }
 }
+
+module.exports.Search = Search;
+async function Search(mode = 'all', query = '', page = 1) {
+    try{
+        const url = `https://osu.ppy.sh/api/v2/search?mode=${mode}&query=${encodeURIComponent(query)}&page=${page}`;
+
+        const response = await AuthorizedClientApiCall(url, 'get');
+        return response;
+    }catch(error){
+        console.error('Error during search:', error);
+        throw new Error('Failed to search osu! API');
+    }
+}
