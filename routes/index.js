@@ -1,5 +1,6 @@
 var routeAuth = require('./routeAuth');
 var routeUser = require('./routeUser');
+var routeBeatmap = require('./routeBeatmap');
 
 let routes = [
     {
@@ -9,6 +10,10 @@ let routes = [
     {
         path: '/user',
         route: routeUser
+    },
+    {
+        path: '/beatmap',
+        route: routeBeatmap
     }
 ];
 
