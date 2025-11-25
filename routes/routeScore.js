@@ -1,7 +1,6 @@
 const express = require('express');
 const { Search } = require('../helpers/osuApiHelper');
 const { AltUserLive, CheckConnection, Databases, AltScoreLive } = require('../helpers/db');
-const apicache = require('apicache-plus');
 const router = express.Router();
 
 router.get('/search', async (req, res) => {
@@ -23,7 +22,7 @@ router.get('/search', async (req, res) => {
     }
 });
 
-router.get('/:userId/profile', apicache('1 hour'), async (req, res) => {
+router.get('/:userId/profile', async (req, res) => {
     const { userId } = req.params;
     if (!userId) {
         return res.status(400).json({ error: 'User ID parameter is required' });
@@ -48,7 +47,7 @@ router.get('/:userId/profile', apicache('1 hour'), async (req, res) => {
     }
 })
 
-router.get('/:userId/scores', apicache('1 hour'), async (req, res) => {
+router.get('/:userId/scores', async (req, res) => {
     const { userId } = req.params;
     if (!userId) {
         return res.status(400).json({ error: 'User ID parameter is required' });

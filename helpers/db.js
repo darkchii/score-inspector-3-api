@@ -3,6 +3,7 @@ const { MariaDbDialect } = require('@sequelize/mariadb');
 const { PostgresDialect } = require('@sequelize/postgres');
 const AltUserLiveModel = require('../models/AltUserLive');
 const AltBeatmapLiveModel = require('../models/AltBeatmapLive');
+const AltScoreLiveModel = require('../models/AltScoreLive');
 require('dotenv').config();
 
 let databases = {
@@ -75,7 +76,9 @@ async function CheckConnection(database, timeout = 10000) {
 
 const AltUserLive = AltUserLiveModel(databases.osuAlt);
 const AltBeatmapLive = AltBeatmapLiveModel(databases.osuAlt);
+const AltScoreLive = AltScoreLiveModel(databases.osuAlt);
 
 module.exports.CheckConnection = CheckConnection;
 module.exports.AltUserLive = AltUserLive;
 module.exports.AltBeatmapLive = AltBeatmapLive;
+module.exports.AltScoreLive = AltScoreLive;

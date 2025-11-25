@@ -8,7 +8,7 @@ const port = 3863;
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use(compression({ level: 9 }));
+// app.use(compression({ level: 9 }));
 
 app.get('/', (req, res) => {
     res.send('Nothing to see here. Watch Mushoku Tensei instead.');

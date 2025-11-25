@@ -1,8 +1,9 @@
 const express = require('express');
 const { AltBeatmapLive } = require('../helpers/db');
 const router = express.Router();
+const apicache = require('apicache-plus');
 
-router.get('/all', async (req, res) => {
+router.get('/all', apicache('1 hour') ,async (req, res) => {
     try {
         const beatmaps = await AltBeatmapLive.findAll();
         return res.status(200).json(beatmaps);
@@ -12,7 +13,7 @@ router.get('/all', async (req, res) => {
     }
 });
 
-router.get('/:beatmapId', async (req, res) => {
+router.get('/:beatmapId', apicache('1 hour'), async (req, res) => {
     //Validate beatmapId
     const { beatmapId } = req.params;
     if (!beatmapId) {
