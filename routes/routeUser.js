@@ -1,5 +1,5 @@
 const express = require('express');
-const { Search } = require('../helpers/osuApiHelper');
+const { Search, GetUserData } = require('../helpers/osuApiHelper');
 const { AltUserLive, CheckConnection, Databases, AltScoreLive } = require('../helpers/db');
 const apicache = require('apicache-plus');
 const router = express.Router();
@@ -36,12 +36,23 @@ router.get('/:userId/profile', apicache('1 hour'), async (req, res) => {
 
     try {
         //check connection
-        const user = await AltUserLive.findOne({ where: { user_id: userId } });
-        if (user) {
-            return res.status(200).json(user);
-        } else {
-            return res.status(404).json({ error: 'User not found' });
+        const userLive = await AltUserLive.findOne({ where: { user_id: userId } });
+        
+        if(!userLive){
+            return res.status(404).json({ error: 'User not found in osu!alternative' });
         }
+        
+        const userRemote = await GetUserData(userId);
+
+        if(!userRemote){
+            return res.status(404).json({ error: 'User not found in osu! API' });
+        }
+
+        return res.status(200).json({
+            osuAlternative: userLive,
+            osuApi: userRemote
+        });
+        
     }catch(error){
         console.error('Error during user profile retrieval:', error);
         return res.status(500).json({ error: 'Internal server error' });

@@ -175,6 +175,21 @@ async function GetOwnData(access_token){
     }
 }
 
+module.exports.GetUserData = GetUserData;
+async function GetUserData(userId){
+    try{
+        const url = `https://osu.ppy.sh/api/v2/users/${userId}`;
+        const response = await AuthorizedClientApiCall(url, 'get');
+        if(response && response.id){
+            return response;
+        }
+        throw new Error('Invalid response from osu! API');
+    }catch(error){
+        console.error('Error during getting user data:', error);
+        throw new Error('Failed to get user data from osu! API');
+    }
+}
+
 module.exports.Search = Search;
 async function Search(mode = 'all', query = '', page = 1) {
     try{
