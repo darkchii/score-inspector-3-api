@@ -1,9 +1,9 @@
 const { default: Sequelize } = require('@sequelize/core');
 const { MariaDbDialect } = require('@sequelize/mariadb');
 const { PostgresDialect } = require('@sequelize/postgres');
-const AltUserLiveModel = require('../models/AltUserLive');
-const AltBeatmapLiveModel = require('../models/AltBeatmapLive');
-const AltScoreLiveModel = require('../models/AltScoreLive');
+const AltUserLiveModel = require('../models/AltUserLiveModel');
+const AltBeatmapLiveModel = require('../models/AltBeatmapLiveModel');
+const AltScoreLiveModel = require('../models/AltScoreLiveModel');
 require('dotenv').config();
 
 let databases = {
