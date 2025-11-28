@@ -4,6 +4,7 @@ const { PostgresDialect } = require('@sequelize/postgres');
 const AltUserLiveModel = require('../models/AltUserLiveModel');
 const AltBeatmapLiveModel = require('../models/AltBeatmapLiveModel');
 const AltScoreLiveModel = require('../models/AltScoreLiveModel');
+const TeamModel = require('../models/TeamModel');
 require('dotenv').config();
 
 let databases = {
@@ -78,7 +79,11 @@ const AltUserLive = AltUserLiveModel(databases.osuAlt);
 const AltBeatmapLive = AltBeatmapLiveModel(databases.osuAlt);
 const AltScoreLive = AltScoreLiveModel(databases.osuAlt);
 
+const Team = TeamModel(databases.inspector_teams);
+
 module.exports.CheckConnection = CheckConnection;
 module.exports.AltUserLive = AltUserLive;
 module.exports.AltBeatmapLive = AltBeatmapLive;
 module.exports.AltScoreLive = AltScoreLive;
+
+module.exports.Team = Team;

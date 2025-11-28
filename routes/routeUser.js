@@ -1,6 +1,6 @@
 const express = require('express');
 const { Search, GetUserData } = require('../helpers/osuApiHelper');
-const { AltUserLive, CheckConnection, Databases, AltScoreLive } = require('../helpers/db');
+const { AltUserLive, CheckConnection, Databases, AltScoreLive, Team } = require('../helpers/db');
 const apicache = require('apicache-plus');
 const router = express.Router();
 
@@ -48,9 +48,15 @@ router.get('/:userId/profile', apicache('1 hour'), async (req, res) => {
             return res.status(404).json({ error: 'User not found in osu! API' });
         }
 
+        let team = undefined;
+        if(userRemote?.team){
+            team = await Team.findOne({ where: { id: userRemote.team.id, deleted: false } });
+        }
+
         return res.status(200).json({
             osuAlternative: userLive,
-            osuApi: userRemote
+            osuApi: userRemote,
+            team: team || null
         });
         
     }catch(error){
