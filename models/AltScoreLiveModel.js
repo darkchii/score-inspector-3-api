@@ -14,7 +14,7 @@ const AltScoreLiveModel = (db) => db.define('ScoreLive', {
     legacy_perfect: { type: DataTypes.BOOLEAN },
     legacy_score_id: { type: DataTypes.BIGINT },
     legacy_total_score: { type: DataTypes.BIGINT },
-    max_combo: { type: DataTypes.INTEGER },
+    combo: { type: DataTypes.INTEGER },
     maximum_statistics_perfect: { type: DataTypes.INTEGER },
     maximum_statistics_great: { type: DataTypes.INTEGER },
     maximum_statistics_miss: { type: DataTypes.INTEGER },
@@ -66,7 +66,9 @@ const AltScoreLiveModel = (db) => db.define('ScoreLive', {
     lchg_time: { type: DataTypes.DATE },
     attr_diff: { type: DataTypes.JSON },
     attr_date: { type: DataTypes.DATE },
-    attr_recalc: { type: DataTypes.BOOLEAN }
+    attr_recalc: { type: DataTypes.BOOLEAN },
+    is_ss: { type: DataTypes.BOOLEAN },
+    is_fc: { type: DataTypes.BOOLEAN }
 }, {
     tableName: 'scorelive',
     timestamps: false

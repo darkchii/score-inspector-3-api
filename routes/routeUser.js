@@ -1,6 +1,6 @@
 const express = require('express');
 const { Search, GetUserData } = require('../helpers/osuApiHelper');
-const { AltUserLive, CheckConnection, Databases, AltScoreLive, Team } = require('../helpers/db');
+const { AltUserLive, CheckConnection, Databases, AltScoreLive, Team, AltRegistration } = require('../helpers/db');
 const apicache = require('apicache-plus');
 const router = express.Router();
 
@@ -53,10 +53,13 @@ router.get('/:userId/profile', apicache('1 hour'), async (req, res) => {
             team = await Team.findOne({ where: { id: userRemote.team.id, deleted: false } });
         }
 
+        const userRegistration = await AltRegistration.findOne({ where: { user_id: userId } });
+
         return res.status(200).json({
             osuAlternative: userLive,
             osuApi: userRemote,
-            team: team || null
+            team: team || null,
+            is_sync: userRegistration?.is_synced || false,
         });
         
     }catch(error){

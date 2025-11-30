@@ -5,6 +5,7 @@ const AltUserLiveModel = require('../models/AltUserLiveModel');
 const AltBeatmapLiveModel = require('../models/AltBeatmapLiveModel');
 const AltScoreLiveModel = require('../models/AltScoreLiveModel');
 const TeamModel = require('../models/TeamModel');
+const AltRegistrationModel = require('../models/AltRegistrationModel');
 require('dotenv').config();
 
 let databases = {
@@ -78,6 +79,7 @@ async function CheckConnection(database, timeout = 10000) {
 const AltUserLive = AltUserLiveModel(databases.osuAlt);
 const AltBeatmapLive = AltBeatmapLiveModel(databases.osuAlt);
 const AltScoreLive = AltScoreLiveModel(databases.osuAlt);
+const AltRegistration = AltRegistrationModel(databases.osuAlt);
 
 const Team = TeamModel(databases.inspector_teams);
 
@@ -85,5 +87,6 @@ module.exports.CheckConnection = CheckConnection;
 module.exports.AltUserLive = AltUserLive;
 module.exports.AltBeatmapLive = AltBeatmapLive;
 module.exports.AltScoreLive = AltScoreLive;
+module.exports.AltRegistration = AltRegistration;
 
 module.exports.Team = Team;
