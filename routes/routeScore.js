@@ -1,10 +1,12 @@
 const express = require('express');
 const { Search } = require('../helpers/osuApiHelper');
-const { AltUserLive, CheckConnection, Databases, AltScoreLive } = require('../helpers/db');
+const { AltUserLive, CheckConnection, Databases, AltScoreLive, AltBeatmapLive } = require('../helpers/db');
+const { FetchDifficultyData } = require('../helpers/diffCalcHelper');
 const router = express.Router();
 
 router.get('/:scoreId', async (req, res) => {
     const { scoreId } = req.params;
+    const { fullData } = req.query; // If true, return beatmap, extra difficulty data along with score
     if (!scoreId) {
         return res.status(400).json({ error: 'Score ID parameter is required' });
     }
@@ -17,7 +19,19 @@ router.get('/:scoreId', async (req, res) => {
     try {
         const score = await AltScoreLive.findOne({ where: { id: scoreId } });
         if (score) {
-            return res.status(200).json(score);
+            if(fullData === 'true') {
+                const beatmap = await AltBeatmapLive.findOne({ where: { beatmap_id: score.beatmap_id } });
+                
+                const difficulty_nomod = await FetchDifficultyData(score.beatmap_id, score.ruleset_id, null);
+
+                return res.status(200).json({
+                    score: score,
+                    beatmap: beatmap,
+                    difficulty_nomod: difficulty_nomod
+                });
+            }else{
+                return res.status(200).json(score);
+            }
         } else {
             return res.status(404).json({ error: 'No score found for this score ID' });
         }
