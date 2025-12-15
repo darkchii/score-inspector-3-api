@@ -2,7 +2,7 @@ const { DataTypes } = require("@sequelize/core");
 
 const AltBeatmapLiveModel = (db) => db.define('BeatmapLive', {
     beatmap_id: { type: DataTypes.INTEGER, primaryKey: true },
-    user_id: { type: DataTypes.INTEGER },
+    mapper_id: { type: DataTypes.INTEGER },
     beatmapset_id: { type: DataTypes.INTEGER },
     mode: { type: DataTypes.INTEGER },
     status: { type: DataTypes.INTEGER },
@@ -34,9 +34,28 @@ const AltBeatmapLiveModel = (db) => db.define('BeatmapLive', {
     checksum: { type: DataTypes.STRING },
     track_id: { type: DataTypes.INTEGER },
     pack: { type: DataTypes.STRING },
-    lchg_time: { type: DataTypes.DATE }
+    lchg_time: { type: DataTypes.DATE },
+    mapper: { type: DataTypes.STRING },
+    is_nsfw: { type: DataTypes.BOOLEAN },
+    beatmap_offset: { type: DataTypes.INTEGER },
+    rating: { type: DataTypes.FLOAT },
+    is_spotlight: { type: DataTypes.BOOLEAN },
+    genre: { type: DataTypes.INTEGER },
+    language: { type: DataTypes.INTEGER },
+    has_video: { type: DataTypes.BOOLEAN },
+    has_storyboard: { type: DataTypes.BOOLEAN },
+    download_disabled: { type: DataTypes.BOOLEAN },
+    mode_str: { type: DataTypes.STRING },
+    is_convert: { type: DataTypes.BOOLEAN },
+    current_user_playcount: { type: DataTypes.INTEGER },
+    beatmap_deleted_at: { type: DataTypes.DATE },
+    beatmap_is_scoreable: { type: DataTypes.BOOLEAN },
+    ranked_raw: { type: DataTypes.INTEGER },
+    url: { type: DataTypes.STRING },
+    //jsonb
+    owners: { type: DataTypes.JSONB }
 }, {
-    tableName: 'beatmaplive',
+    tableName: 'beatmapfull',
     timestamps: false
 });
 

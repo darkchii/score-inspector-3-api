@@ -3,70 +3,26 @@ const { Search } = require('../helpers/osuApiHelper');
 const { AltUserLive, CheckConnection, Databases, AltScoreLive } = require('../helpers/db');
 const router = express.Router();
 
-router.get('/search', async (req, res) => {
-    const { query, page } = req.query;
-    if (!query) {
-        return res.status(400).json({ error: 'Query parameter is required' });
+router.get('/:scoreId', async (req, res) => {
+    const { scoreId } = req.params;
+    if (!scoreId) {
+        return res.status(400).json({ error: 'Score ID parameter is required' });
+    }
+
+    //validate that scoreId is a number
+    if (isNaN(scoreId)) {
+        return res.status(400).json({ error: 'Score ID must be a number' });
     }
 
     try {
-        const response = await Search('user', query, page || 1);
-        if (response) {
-            return res.status(200).json(response);
+        const score = await AltScoreLive.findOne({ where: { id: scoreId } });
+        if (score) {
+            return res.status(200).json(score);
         } else {
-            return res.status(404).json({ error: 'No users found' });
+            return res.status(404).json({ error: 'No score found for this score ID' });
         }
     } catch (error) {
-        console.error('Error during user search:', error);
-        return res.status(500).json({ error: 'Internal server error' });
-    }
-});
-
-router.get('/:userId/profile', async (req, res) => {
-    const { userId } = req.params;
-    if (!userId) {
-        return res.status(400).json({ error: 'User ID parameter is required' });
-    }
-
-    //validate that userId is a number
-    if (isNaN(userId)) {
-        return res.status(400).json({ error: 'User ID must be a number' });
-    }
-
-    try {
-        //check connection
-        const user = await AltUserLive.findOne({ where: { user_id: userId } });
-        if (user) {
-            return res.status(200).json(user);
-        } else {
-            return res.status(404).json({ error: 'User not found' });
-        }
-    }catch(error){
-        console.error('Error during user profile retrieval:', error);
-        return res.status(500).json({ error: 'Internal server error' });
-    }
-})
-
-router.get('/:userId/scores', async (req, res) => {
-    const { userId } = req.params;
-    if (!userId) {
-        return res.status(400).json({ error: 'User ID parameter is required' });
-    }
-
-    //validate that userId is a number
-    if (isNaN(userId)) {
-        return res.status(400).json({ error: 'User ID must be a number' });
-    }
-
-    try {
-        const scores = await AltScoreLive.findAll({ where: { user_id: userId } });
-        if (scores && scores.length > 0) {
-            return res.status(200).json(scores);
-        } else {
-            return res.status(404).json({ error: 'No scores found for this user' });
-        }
-    } catch (error) {
-        console.error('Error during user scores retrieval:', error);
+        console.error('Error during score retrieval:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
 });

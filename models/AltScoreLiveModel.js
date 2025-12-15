@@ -2,8 +2,8 @@ const { DataTypes } = require("@sequelize/core");
 
 const AltScoreLiveModel = (db) => db.define('ScoreLive', {
     id: { type: DataTypes.BIGINT, primaryKey: true },
-    beatmap_id: { type: DataTypes.BIGINT },
-    user_id: { type: DataTypes.BIGINT },
+    beatmap_id: { type: DataTypes.INTEGER, columnName: 'beatmap_id_fk' },
+    user_id: { type: DataTypes.BIGINT, columnName: 'user_id_fk' },
     accuracy: { type: DataTypes.FLOAT },
     best_id: { type: DataTypes.BIGINT },
     build_id: { type: DataTypes.INTEGER },
@@ -71,7 +71,7 @@ const AltScoreLiveModel = (db) => db.define('ScoreLive', {
     is_fc: { type: DataTypes.BOOLEAN }
 }, {
     tableName: 'scorelive',
-    timestamps: false
+    timestamps: false,
 });
 
 module.exports = AltScoreLiveModel;

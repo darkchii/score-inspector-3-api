@@ -3,6 +3,7 @@ var routeUser = require('./routeUser');
 var routeBeatmap = require('./routeBeatmap');
 var routeDifficulty = require('./routeDifficulty');
 var routeReplay = require('./routeReplay');
+var routeScore = require('./routeScore');
 
 let routes = [
     {
@@ -12,6 +13,10 @@ let routes = [
     {
         path: '/user',
         route: routeUser
+    },
+    {
+        path: '/score',
+        route: routeScore
     },
     {
         path: '/beatmap',
