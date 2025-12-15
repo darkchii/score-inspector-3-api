@@ -2,6 +2,7 @@ const express = require('express');
 const { AltBeatmapLive } = require('../helpers/db');
 const router = express.Router();
 const apicache = require('apicache-plus');
+const { FetchBeatmapFile } = require('../helpers/diffCalcHelper');
 
 router.get('/all', apicache('1 hour') ,async (req, res) => {
     try {
@@ -9,6 +10,30 @@ router.get('/all', apicache('1 hour') ,async (req, res) => {
         return res.status(200).json(beatmaps);
     } catch (error) {
         console.error('Error fetching all beatmaps:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.get('/:beatmapId/file', apicache('1 hour'), async (req, res) => {
+    const { beatmapId } = req.params;
+    if (!beatmapId) {
+        return res.status(400).json({ error: 'Beatmap ID parameter is required' });
+    }
+
+    //validate that beatmapId is a number
+    if (isNaN(beatmapId)) {
+        return res.status(400).json({ error: 'Beatmap ID must be a number' });
+    }
+
+    try {
+        const beatmap = await FetchBeatmapFile(beatmapId);
+
+        //return actual .osu file
+        res.setHeader('Content-Disposition', `attachment; filename=${beatmapId}.osu`);
+        res.setHeader('Content-Type', 'application/octet-stream');
+        return res.status(200).send(beatmap);
+    } catch (error) {
+        console.error('Error fetching beatmap file:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
 });
