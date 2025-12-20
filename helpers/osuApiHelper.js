@@ -192,14 +192,33 @@ async function GetUserData(userId) {
 }
 
 module.exports.GetReplay = GetReplay;
-async function GetReplay(scoreId) {
+async function GetReplay(scoreId, read = true) {
     try {
         const url = `https://osu.ppy.sh/api/v2/scores/${scoreId}/download`;
         const response = await AuthorizedClientApiCall(url, 'get', null, 10000, null, 'application/x-osu-replay', 'arraybuffer');
         if (response) {
             //osr.reads expects a Buffer object
-            const replay_data = await osr.read(Buffer.from(response));
-            return replay_data;
+            if(read){
+                const replay_data = await osr.read(Buffer.from(response));
+                return replay_data;
+            }else{
+                return Buffer.from(response);
+            }
+        }
+        throw new Error('Invalid response from osu! API');
+    } catch (error) {
+        console.error('Error during getting replay data:', error);
+        throw new Error('Failed to get replay data from osu! API');
+    }
+}
+
+module.exports.GetScore = GetScore;
+async function GetScore(scoreId) {
+    try {
+        const url = `https://osu.ppy.sh/api/v2/scores/${scoreId}`;
+        const response = await AuthorizedClientApiCall(url, 'get');
+        if (response) {
+            return response;
         }
         throw new Error('Invalid response from osu! API');
     } catch (error) {

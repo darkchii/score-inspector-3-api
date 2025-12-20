@@ -60,3 +60,29 @@ async function FetchDifficultyData(beatmapId, rulesetId = 0, mods = null) {
     return response.data;
 }
 
+module.exports.FetchDifficultyDetailed = FetchDifficultyDetailed;
+async function FetchDifficultyDetailed(beatmapId, rulesetId = 0, mods = null, replayData = null) {
+    if(!beatmapId || isNaN(beatmapId) || beatmapId <= 0){
+        throw new Error('Invalid beatmap ID');
+    }
+
+    const url = GetUrl();
+
+    const response = await axios.post(`http://${url}/extra`, {
+        beatmap_id: parseInt(beatmapId),
+        replay_data: replayData ? replayData.toString('base64') : null,
+        mods: mods,
+        ruleset_id: rulesetId
+    }, {
+        timeout: 30000,
+        headers: {
+            "Accept-Encoding": "gzip,deflate,compress"
+        }
+    });
+
+    if (response.status !== 200 || !response.data) {
+        throw new Error('Failed to fetch processed replay data');
+    }
+
+    return response.data;
+}
