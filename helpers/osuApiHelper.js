@@ -191,6 +191,26 @@ async function GetUserData(userId) {
     }
 }
 
+module.exports.GetUsers = GetUsers;
+async function GetUsers(userIds) {
+    try {
+        //max 50 per request, so split into chunks
+        let allUsers = [];
+        for (let i = 0; i < userIds.length; i += 50) {
+            const chunk = userIds.slice(i, i + 50);
+            const url = `https://osu.ppy.sh/api/v2/users?ids[]=${chunk.join('&ids[]=')}`;
+            const response = await AuthorizedClientApiCall(url, 'get');
+            if (response && Array.isArray(response?.users)) {
+                allUsers = allUsers.concat(response?.users || []);
+            }
+        }   
+        return allUsers;
+    } catch (error) {
+        console.error('Error during getting users data:', error);
+        throw new Error('Failed to get users data from osu! API');
+    }
+}
+
 module.exports.GetReplay = GetReplay;
 async function GetReplay(scoreId, read = true) {
     try {

@@ -1,6 +1,6 @@
 const express = require('express');
-const { Search, GetUserData } = require('../helpers/osuApiHelper');
-const { AltUserLive, CheckConnection, Databases, AltScoreLive, Team, AltRegistration } = require('../helpers/db');
+const { Search, GetUserData, GetUsers } = require('../helpers/osuApiHelper');
+const { AltUserLive, CheckConnection, Databases, AltScoreLive, Team, AltRegistration, InspectorCompletionist } = require('../helpers/db');
 const apicache = require('apicache-plus');
 const router = express.Router();
 
@@ -88,6 +88,36 @@ router.get('/:userId/scores', apicache('1 hour'), async (req, res) => {
         }
     } catch (error) {
         console.error('Error during user scores retrieval:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.get('/completionists', apicache('1 hour'), async (req, res) => {
+    try {
+        const completionists = await InspectorCompletionist.findAll();
+        let users = await GetUsers(completionists.map(c => c.osu_id));
+
+        let teams = await Team.findAll({
+            where: {
+                id: users.filter(u => u.team).map(u => u.team.id),
+                deleted: false
+            }
+        })
+
+        let remapped = [];
+        for(const completionist of completionists){
+            const userData = users.find(u => u.id === completionist.osu_id);
+            const teamData = teams.find(t => t.id === userData?.team?.id);
+            remapped.push({
+                ...completionist.dataValues,
+                user: userData || null,
+                team: teamData || null
+            });
+        }
+
+        return res.status(200).json(remapped);
+    }catch(error){
+        console.error('Error during completionists retrieval:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
 });

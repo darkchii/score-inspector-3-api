@@ -6,6 +6,7 @@ const AltBeatmapLiveModel = require('../models/AltBeatmapLiveModel');
 const AltScoreLiveModel = require('../models/AltScoreLiveModel');
 const TeamModel = require('../models/TeamModel');
 const AltRegistrationModel = require('../models/AltRegistrationModel');
+const InspectorCompletionistModel = require('../models/InspectorCompletionistModel');
 require('dotenv').config();
 
 let databases = {
@@ -81,6 +82,8 @@ const AltBeatmapLive = AltBeatmapLiveModel(databases.osuAlt);
 const AltScoreLive = AltScoreLiveModel(databases.osuAlt);
 const AltRegistration = AltRegistrationModel(databases.osuAlt);
 
+const InspectorCompletionist = InspectorCompletionistModel(databases.inspector);
+
 const Team = TeamModel(databases.inspector_teams);
 
 module.exports.CheckConnection = CheckConnection;
@@ -88,5 +91,7 @@ module.exports.AltUserLive = AltUserLive;
 module.exports.AltBeatmapLive = AltBeatmapLive;
 module.exports.AltScoreLive = AltScoreLive;
 module.exports.AltRegistration = AltRegistration;
+
+module.exports.InspectorCompletionist = InspectorCompletionist;
 
 module.exports.Team = Team;
