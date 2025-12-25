@@ -2,21 +2,50 @@ const express = require('express');
 const { Search, GetUserData, GetUsers } = require('../helpers/osuApiHelper');
 const { AltUserLive, CheckConnection, Databases, AltScoreLive, Team, AltRegistration, InspectorCompletionist } = require('../helpers/db');
 const apicache = require('apicache-plus');
+const { default: Sequelize, Op, literal } = require('@sequelize/core');
+const { getFullUsers } = require('../helpers/userHelper');
 const router = express.Router();
 
-router.get('/search', async (req, res) => {
-    const { query, page } = req.query;
+router.get('/search/:query', async (req, res) => {
+    const { query } = req.params;
     if (!query) {
         return res.status(400).json({ error: 'Query parameter is required' });
     }
 
+    if (query.length < 2) {
+        return res.status(400).json({ error: 'Query parameter must be at least 2 characters long' });
+    }
+
+    //lowercase search
+    let _query = query.toLowerCase();
+
     try {
-        const response = await Search('user', query, page || 1);
-        if (response) {
-            return res.status(200).json(response);
-        } else {
-            return res.status(404).json({ error: 'No users found' });
+        const users = await AltUserLive.findAll({
+            where: {
+                username: {
+                    [Op.iLike]: `%${_query}%`
+                }
+            },
+            order: [
+                //Order by relevance heuristic
+                [literal(`CASE
+                    WHEN LOWER(username) = '${_query}' THEN 1
+                    WHEN LOWER(username) LIKE '${_query}%' THEN 2
+                    WHEN LOWER(username) LIKE '%${_query}' THEN 3
+                    ELSE 4
+                END`), 'ASC'],
+                ['username', 'ASC']
+            ],
+            limit: 20
+        });
+
+        if (users.length === 0) {
+            return res.status(404).json({ error: 'No users found matching the query' });
         }
+
+        let _users = await getFullUsers(users.map(u => u.user_id), true);
+
+        return res.status(200).json(_users);
     } catch (error) {
         console.error('Error during user search:', error);
         return res.status(500).json({ error: 'Internal server error' });
@@ -37,32 +66,19 @@ router.get('/:userId/profile', apicache('1 hour'), async (req, res) => {
     try {
         //check connection
         const userLive = await AltUserLive.findOne({ where: { user_id: userId } });
-        
-        if(!userLive){
+
+        if (!userLive) {
             return res.status(404).json({ error: 'User not found in osu!alternative' });
         }
-        
-        const userRemote = await GetUserData(userId);
 
-        if(!userRemote){
-            return res.status(404).json({ error: 'User not found in osu! API' });
+        const users = await getFullUsers([parseInt(userId)], true);
+
+        if (!users || users.length === 0) {
+            return res.status(404).json({ error: 'User not found in osu!api' });
         }
 
-        let team = undefined;
-        if(userRemote?.team){
-            team = await Team.findOne({ where: { id: userRemote.team.id, deleted: false } });
-        }
-
-        const userRegistration = await AltRegistration.findOne({ where: { user_id: userId } });
-
-        return res.status(200).json({
-            osuAlternative: userLive,
-            osuApi: userRemote,
-            team: team || null,
-            is_sync: userRegistration?.is_synced || false,
-        });
-        
-    }catch(error){
+        return res.status(200).json(users[0]);
+    } catch (error) {
         console.error('Error during user profile retrieval:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
@@ -105,7 +121,7 @@ router.get('/completionists', apicache('1 hour'), async (req, res) => {
         })
 
         let remapped = [];
-        for(const completionist of completionists){
+        for (const completionist of completionists) {
             const userData = users.find(u => u.id === completionist.osu_id);
             const teamData = teams.find(t => t.id === userData?.team?.id);
             remapped.push({
@@ -116,7 +132,7 @@ router.get('/completionists', apicache('1 hour'), async (req, res) => {
         }
 
         return res.status(200).json(remapped);
-    }catch(error){
+    } catch (error) {
         console.error('Error during completionists retrieval:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
