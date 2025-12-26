@@ -7,6 +7,8 @@ const AltScoreLiveModel = require('../models/AltScoreLiveModel');
 const TeamModel = require('../models/TeamModel');
 const AltRegistrationModel = require('../models/AltRegistrationModel');
 const InspectorCompletionistModel = require('../models/InspectorCompletionistModel');
+const InspectorRoleModel = require('../models/InspectorRoleModel');
+const InspectorUserRoleModel = require('../models/InspectorUserRoleModel');
 require('dotenv').config();
 
 let databases = {
@@ -83,8 +85,12 @@ const AltScoreLive = AltScoreLiveModel(databases.osuAlt);
 const AltRegistration = AltRegistrationModel(databases.osuAlt);
 
 const InspectorCompletionist = InspectorCompletionistModel(databases.inspector);
+const InspectorRole = InspectorRoleModel(databases.inspector);
+const InspectorUserRole = InspectorUserRoleModel(databases.inspector);
 
 const Team = TeamModel(databases.inspector_teams);
+
+InspectorUserRole.hasOne(InspectorRole, { foreignKey: 'id', sourceKey: 'role_id' });
 
 module.exports.CheckConnection = CheckConnection;
 module.exports.AltUserLive = AltUserLive;
@@ -93,5 +99,7 @@ module.exports.AltScoreLive = AltScoreLive;
 module.exports.AltRegistration = AltRegistration;
 
 module.exports.InspectorCompletionist = InspectorCompletionist;
+module.exports.InspectorRole = InspectorRole;
+module.exports.InspectorUserRole = InspectorUserRole;
 
 module.exports.Team = Team;
