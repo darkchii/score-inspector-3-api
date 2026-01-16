@@ -4,9 +4,10 @@ const router = express.Router();
 const apicache = require('apicache-plus');
 const { FetchBeatmapFile } = require('../helpers/diffCalcHelper');
 
+const BEATMAP_BATCH_SIZE = 10000;
 router.get('/all', apicache('1 hour') ,async (req, res) => {
     try {
-        const beatmaps = await AltBeatmapLive.findAll();
+        const beatmaps = await AltBeatmapLive.findAll({ raw: true });
         return res.status(200).json(beatmaps);
     } catch (error) {
         console.error('Error fetching all beatmaps:', error);

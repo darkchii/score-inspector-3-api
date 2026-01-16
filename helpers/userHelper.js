@@ -1,5 +1,5 @@
 const { AltUserLive, AltRegistration, Team, InspectorUserRole, InspectorRole } = require("./db");
-const { GetUsers } = require("./osuApiHelper");
+const { GetUsers, GetUserData } = require("./osuApiHelper");
 
 async function getFullUsers(userIds, filterRestricted = false) {
     // we want the following structure:
@@ -32,7 +32,13 @@ async function getFullUsers(userIds, filterRestricted = false) {
     }
 
     // Fetch osu! api data
-    const osuApiUsers = await GetUsers(userIds);
+    // const osuApiUsers = await GetUsers(userIds);
+    let osuApiUsers = [];
+    if(userIds.length > 1) {
+        osuApiUsers = await GetUsers(userIds);
+    }else{
+        osuApiUsers = [await GetUserData(userIds[0])];
+    }
 
     for (const userId of Object.keys(users)) {
         const osuApiData = osuApiUsers.find(u => u.id === parseInt(userId));

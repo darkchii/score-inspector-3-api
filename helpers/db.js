@@ -9,6 +9,7 @@ const AltRegistrationModel = require('../models/AltRegistrationModel');
 const InspectorCompletionistModel = require('../models/InspectorCompletionistModel');
 const InspectorRoleModel = require('../models/InspectorRoleModel');
 const InspectorUserRoleModel = require('../models/InspectorUserRoleModel');
+const AltBeatmapPackModel = require('../models/AltBeatmapPackModel');
 require('dotenv').config();
 
 let databases = {
@@ -81,6 +82,7 @@ async function CheckConnection(database, timeout = 10000) {
 
 const AltUserLive = AltUserLiveModel(databases.osuAlt);
 const AltBeatmapLive = AltBeatmapLiveModel(databases.osuAlt);
+const AltBeatmapPack = AltBeatmapPackModel(databases.osuAlt);
 const AltScoreLive = AltScoreLiveModel(databases.osuAlt);
 const AltRegistration = AltRegistrationModel(databases.osuAlt);
 
@@ -95,6 +97,7 @@ InspectorUserRole.hasOne(InspectorRole, { foreignKey: 'id', sourceKey: 'role_id'
 module.exports.CheckConnection = CheckConnection;
 module.exports.AltUserLive = AltUserLive;
 module.exports.AltBeatmapLive = AltBeatmapLive;
+module.exports.AltBeatmapPack = AltBeatmapPack;
 module.exports.AltScoreLive = AltScoreLive;
 module.exports.AltRegistration = AltRegistration;
 
