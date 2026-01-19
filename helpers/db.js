@@ -94,6 +94,9 @@ const Team = TeamModel(databases.inspector_teams);
 
 InspectorUserRole.hasOne(InspectorRole, { foreignKey: 'id', sourceKey: 'role_id' });
 
+AltUserLive.hasMany(AltScoreLive, { foreignKey: 'user_id_fk', sourceKey: 'user_id' });
+AltScoreLive.belongsTo(AltUserLive, { foreignKey: 'user_id_fk', targetKey: 'user_id' });
+
 module.exports.CheckConnection = CheckConnection;
 module.exports.AltUserLive = AltUserLive;
 module.exports.AltBeatmapLive = AltBeatmapLive;
