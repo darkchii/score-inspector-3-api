@@ -69,13 +69,13 @@ async function getFullUsers(userIds, filterRestricted = false) {
     // Fetch roles
     const userRoles = await InspectorUserRole.findAll({
         where: {
-            osu_id: userIds
+            user_id: userIds
         },
         include: [InspectorRole]
     });
 
     for (const userId of Object.keys(users)) {
-        const rolesData = userRoles.filter(r => r.osu_id === parseInt(userId)).map(r => r.inspectorRole);
+        const rolesData = userRoles.filter(r => r.user_id === parseInt(userId)).map(r => r.inspectorRole);
         users[userId].roles = rolesData;
     }
 
