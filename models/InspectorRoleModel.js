@@ -10,7 +10,7 @@ const InspectorRoleModel = (db) => db.define('InspectorRole', {
     is_admin: { type: DataTypes.BOOLEAN, defaultValue: false },
     is_listed: { type: DataTypes.BOOLEAN, defaultValue: true }
 }, {
-    tableName: 'inspector_roles',
+    tableName: 'roles',
     timestamps: false
 });
 

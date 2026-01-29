@@ -111,7 +111,7 @@ router.get('/:userId/scores', apicache('1 hour'), async (req, res) => {
 router.get('/completionists', apicache('1 hour'), async (req, res) => {
     try {
         const completionists = await InspectorCompletionist.findAll();
-        let users = await GetUsers(completionists.map(c => c.osu_id));
+        let users = await GetUsers(completionists.map(c => c.user_id));
 
         let teams = await Team.findAll({
             where: {
@@ -122,7 +122,7 @@ router.get('/completionists', apicache('1 hour'), async (req, res) => {
 
         let remapped = [];
         for (const completionist of completionists) {
-            const userData = users.find(u => u.id === completionist.osu_id);
+            const userData = users.find(u => u.id === completionist.user_id);
             const teamData = teams.find(t => t.id === userData?.team?.id);
             remapped.push({
                 ...completionist.dataValues,

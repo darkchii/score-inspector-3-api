@@ -6,6 +6,7 @@ var routeDifficulty = require('./routeDifficulty');
 var routeReplay = require('./routeReplay');
 var routeScore = require('./routeScore');
 var routeLeaderboard = require('./routeLeaderboard');
+var routeTeam = require('./routeTeam');
 
 let routes = [
     {
@@ -39,6 +40,10 @@ let routes = [
     {
         path: '/leaderboard',
         route: routeLeaderboard
+    },
+    {
+        path: '/team',
+        route: routeTeam
     }
 ];
 
