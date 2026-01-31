@@ -13,6 +13,7 @@ const AltBeatmapPackModel = require('../models/AltBeatmapPackModel');
 const AltUserStatModel = require('../models/AltUserStatModel');
 const TeamMemberModel = require('../models/TeamMemberModel');
 const TeamStatsModel = require('../models/TeamStatsModel');
+const { InspectorStatModel } = require('../models/InspectorStatModel');
 require('dotenv').config();
 
 let databases = {
@@ -94,6 +95,8 @@ const InspectorCompletionist = InspectorCompletionistModel(databases.inspector);
 const InspectorRole = InspectorRoleModel(databases.inspector);
 const InspectorUserRole = InspectorUserRoleModel(databases.inspector);
 
+const InspectorStat = InspectorStatModel(databases.inspector);
+
 const Team = TeamModel(databases.inspector_teams);
 const TeamMember = TeamMemberModel(databases.inspector_teams);
 const TeamStats = TeamStatsModel(databases.inspector_teams);
@@ -121,6 +124,8 @@ module.exports.AltRegistration = AltRegistration;
 module.exports.InspectorCompletionist = InspectorCompletionist;
 module.exports.InspectorRole = InspectorRole;
 module.exports.InspectorUserRole = InspectorUserRole;
+
+module.exports.InspectorStat = InspectorStat;
 
 module.exports.Team = Team;
 module.exports.TeamMember = TeamMember;
