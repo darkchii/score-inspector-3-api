@@ -57,4 +57,31 @@ router.get('/top-day', async (req, res) => {
     }
 });
 
+router.get('/global-stats', async (req, res) => {
+    try {
+        //get: beatmap_counts, score_counts, user_counts, team_counts
+        const data = await InspectorStat.findAll({
+            where: { metric: [
+                'beatmap_counts',
+                'score_counts',
+                'user_counts',
+                'team_counts'
+            ] }
+        })
+
+        const result = {};
+        data.forEach(stat => {
+            if(stat.data){
+                result[stat.metric] = {
+                    data: JSON.parse(stat.data),
+                    last_updated: stat.last_updated
+                };
+            }
+        });
+        res.json(result);
+    }catch (err) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 module.exports = router;
