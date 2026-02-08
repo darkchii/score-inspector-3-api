@@ -5,9 +5,18 @@ const apicache = require('apicache-plus');
 const { FetchBeatmapFile } = require('../helpers/diffCalcHelper');
 
 const BEATMAP_BATCH_SIZE = 10000;
-router.get('/all', apicache('1 hour') ,async (req, res) => {
+const BEATMAP_CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
+let BEATMAP_LAST_UPDATED = null;
+let BEATMAP_CACHE = [];
+router.get('/all', async (req, res) => {
     try {
+        if(BEATMAP_CACHE.length > 0 && BEATMAP_LAST_UPDATED && (Date.now() - BEATMAP_LAST_UPDATED < BEATMAP_CACHE_DURATION)) {
+            console.log('Serving beatmaps from cache');
+            return res.status(200).json(BEATMAP_CACHE);
+        }
         const beatmaps = await AltBeatmapLive.findAll({ raw: true });
+        BEATMAP_CACHE = beatmaps;
+        BEATMAP_LAST_UPDATED = Date.now();
         return res.status(200).json(beatmaps);
     } catch (error) {
         console.error('Error fetching all beatmaps:', error);

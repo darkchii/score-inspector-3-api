@@ -63,15 +63,12 @@ router.post('/me', async (req, res) => {
     try {
         const response = await GetOwnData(access_token);
         if (response && response.id) {
-            console.log(response);
-            //get full user
             const data = await getFullUsers([response.id]);
             if (data && data.length > 0) {
                 return res.status(200).json(data[0]);
             } else {
                 return res.status(400).json({ error: 'User not found in database' });
             }
-            // return res.status(200).json(response);
         } else {
             return res.status(400).json({ error: 'Invalid user data received from osu! API' });
         }
