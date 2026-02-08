@@ -16,21 +16,6 @@ async function getFullUsers(userIds, filterRestricted = false) {
 
     let users = {};
 
-    const osuAltUsers = await AltUserLive.findAll({
-        where: {
-            user_id: userIds
-        }
-    });
-
-    for (const altUser of osuAltUsers) {
-        users[altUser.user_id] = {
-            osuAlternative: altUser,
-            osuApi: null,
-            team: null,
-            is_sync: false
-        };
-    }
-
     // Fetch osu! api data
     // const osuApiUsers = await GetUsers(userIds);
     let osuApiUsers = [];
@@ -39,10 +24,27 @@ async function getFullUsers(userIds, filterRestricted = false) {
     }else{
         osuApiUsers = [await GetUserData(userIds[0])];
     }
+    
+    //loop through osuApiUsers
+    for (const osuApiUser of osuApiUsers) {
+        users[osuApiUser.id] = {
+            osuAlternative: null,
+            osuApi: osuApiUser,
+            team: null,
+            is_sync: false
+        };
+    }
 
-    for (const userId of Object.keys(users)) {
-        const osuApiData = osuApiUsers.find(u => u.id === parseInt(userId));
-        users[userId].osuApi = osuApiData || null;
+    const osuAltUsers = await AltUserLive.findAll({
+        where: {
+            user_id: userIds
+        }
+    });
+
+    for (const osuAltUser of osuAltUsers) {
+        if (users[osuAltUser.user_id]) {
+            users[osuAltUser.user_id].osuAlternative = osuAltUser;
+        }
     }
 
     if (filterRestricted) {

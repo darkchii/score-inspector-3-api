@@ -1,6 +1,6 @@
 const express = require('express');
 const { Search, GetUserData, GetUsers } = require('../helpers/osuApiHelper');
-const { AltUserLive, CheckConnection, Databases, AltScoreLive, Team, AltRegistration, InspectorCompletionist } = require('../helpers/db');
+const { AltUserLive, CheckConnection, Databases, AltScoreLive, Team, AltRegistration, InspectorCompletionist, InspectorUserRole, InspectorRole } = require('../helpers/db');
 const apicache = require('apicache-plus');
 const { default: Sequelize, Op, literal } = require('@sequelize/core');
 const { getFullUsers } = require('../helpers/userHelper');
@@ -134,6 +134,27 @@ router.get('/completionists', apicache('1 hour'), async (req, res) => {
         return res.status(200).json(remapped);
     } catch (error) {
         console.error('Error during completionists retrieval:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.get('/people', apicache('2 hours'), async (req, res) => {
+    //find all users that have a role
+    try {
+        //get all userroles
+        const userRoles = await InspectorUserRole.findAll();
+        const roles = await InspectorRole.findAll();
+        let users = await getFullUsers(userRoles.map(ur => ur.user_id), true);
+        if(users && users.length > 0 && roles && roles.length > 0) {
+            return res.status(200).json({
+                users: users,
+                roles: roles
+            });
+        } else {
+            return res.status(404).json({ error: 'No users found with roles' });
+        }
+    } catch (error) {
+        console.error('Error during people retrieval:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
 });

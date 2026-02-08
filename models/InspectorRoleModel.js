@@ -8,7 +8,8 @@ const InspectorRoleModel = (db) => db.define('InspectorRole', {
     color: { type: DataTypes.STRING },
     is_visible: { type: DataTypes.BOOLEAN, defaultValue: true },
     is_admin: { type: DataTypes.BOOLEAN, defaultValue: false },
-    is_listed: { type: DataTypes.BOOLEAN, defaultValue: true }
+    is_listed: { type: DataTypes.BOOLEAN, defaultValue: true },
+    priority: { type: DataTypes.INTEGER, defaultValue: 0 }
 }, {
     tableName: 'roles',
     timestamps: false
