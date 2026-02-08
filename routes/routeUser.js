@@ -111,23 +111,15 @@ router.get('/:userId/scores', apicache('1 hour'), async (req, res) => {
 router.get('/completionists', apicache('1 hour'), async (req, res) => {
     try {
         const completionists = await InspectorCompletionist.findAll();
-        let users = await GetUsers(completionists.map(c => c.user_id));
-
-        let teams = await Team.findAll({
-            where: {
-                id: users.filter(u => u.team).map(u => u.team.id),
-                deleted: false
-            }
-        })
+        // let users = await GetUsers(completionists.map(c => c.user_id));
+        let users = await getFullUsers(completionists.map(c => c.user_id), true);
 
         let remapped = [];
         for (const completionist of completionists) {
-            const userData = users.find(u => u.id === completionist.user_id);
-            const teamData = teams.find(t => t.id === userData?.team?.id);
+            const userData = users.find(u => u.osuApi.id === completionist.user_id);
             remapped.push({
                 ...completionist.dataValues,
-                user: userData || null,
-                team: teamData || null
+                user: userData || null
             });
         }
 
@@ -145,7 +137,7 @@ router.get('/people', apicache('2 hours'), async (req, res) => {
         const userRoles = await InspectorUserRole.findAll();
         const roles = await InspectorRole.findAll();
         let users = await getFullUsers(userRoles.map(ur => ur.user_id), true);
-        if(users && users.length > 0 && roles && roles.length > 0) {
+        if (users && users.length > 0 && roles && roles.length > 0) {
             return res.status(200).json({
                 users: users,
                 roles: roles
