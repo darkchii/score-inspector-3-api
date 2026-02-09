@@ -98,11 +98,15 @@ const AltUserLiveModel = (db) => db.define('UserLive', {
     total_grade_counts_sh: { type: DataTypes.INTEGER },
     total_grade_counts_ss: { type: DataTypes.INTEGER },
     total_grade_counts_ssh: { type: DataTypes.INTEGER },
+    total_grade_counts_b: { type: DataTypes.INTEGER },
+    total_grade_counts_c: { type: DataTypes.INTEGER },
+    total_grade_counts_d: { type: DataTypes.INTEGER },
     total_play_count: { type: DataTypes.INTEGER },
     total_play_time: { type: DataTypes.INTEGER },
     total_pp: { type: DataTypes.FLOAT },
     total_replays_watched_by_others: { type: DataTypes.INTEGER },
     total_ranked_score: { type: DataTypes.BIGINT },
+    total_total_score: { type: DataTypes.BIGINT },
     lchg_time: { type: DataTypes.DATE }
 }, {
     tableName: 'userlive',

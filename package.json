@@ -1,6 +1,6 @@
 {
   "name": "score-inspector-3-api",
-  "version": "1.0.0",
+  "version": "3.0.0",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
