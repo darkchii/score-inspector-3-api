@@ -1,6 +1,6 @@
 const express = require('express');
-const { Search, GetUserData, GetUsers } = require('../helpers/osuApiHelper');
-const { AltUserLive, CheckConnection, Databases, AltScoreLive, Team, AltRegistration, InspectorCompletionist, InspectorUserRole, InspectorRole } = require('../helpers/db');
+const { Search, GetUserData, GetUsers, CheckAuth } = require('../helpers/osuApiHelper');
+const { AltUserLive, CheckConnection, Databases, AltScoreLive, Team, AltRegistration, InspectorCompletionist, InspectorUserRole, InspectorRole, InspectorPlayerReputation } = require('../helpers/db');
 const apicache = require('apicache-plus');
 const { default: Sequelize, Op, literal } = require('@sequelize/core');
 const { getFullUsers } = require('../helpers/userHelper');
@@ -151,4 +151,46 @@ router.get('/people', apicache('2 hours'), async (req, res) => {
     }
 });
 
+router.post('/reputation', async (req, res) => {
+    const { access_token, user_id, target_user_id } = req.body;
+
+    try{
+        //validate access first
+        try{
+            CheckAuth(access_token, user_id); //will throw if invalid
+        }catch(err){
+            return res.status(403).json({ error: 'Invalid access token' });
+        }
+
+        //check if both users exist on the osu!api
+        const users = await getFullUsers([user_id, target_user_id], true);
+        if (!users || users.length < 2) {
+            return res.status(404).json({ error: 'One or both users not found in osu! API' });
+        }
+
+        //check if user_id has already given reputation within the last 24 hours
+        const existingRep = await InspectorPlayerReputation.findOne({
+            where: {
+                user_id: user_id,
+                created_at: {
+                    [Op.gte]: Sequelize.literal("NOW() - INTERVAL '24 HOURS'")
+                }
+            }
+        });
+        if (existingRep) {
+            return res.status(400).json({ error: 'You have already given reputation within the last 24 hours' });
+        }
+
+        //create new reputation entry
+        await InspectorPlayerReputation.create({
+            user_id: user_id,
+            target_id: target_user_id
+        });
+
+        return res.status(200).json({ message: 'Reputation given successfully' });
+    }catch(err){
+        console.error('Error during reputation change:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+})
 module.exports = router;

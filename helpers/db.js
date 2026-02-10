@@ -14,6 +14,7 @@ const AltUserStatModel = require('../models/AltUserStatModel');
 const TeamMemberModel = require('../models/TeamMemberModel');
 const TeamStatsModel = require('../models/TeamStatsModel');
 const { InspectorStatModel } = require('../models/InspectorStatModel');
+const InspectorPlayerReputationModel = require('../models/InspectorPlayerReputationModel');
 require('dotenv').config();
 
 let databases = {
@@ -97,6 +98,8 @@ const InspectorUserRole = InspectorUserRoleModel(databases.inspector);
 
 const InspectorStat = InspectorStatModel(databases.inspector);
 
+const InspectorPlayerReputation = InspectorPlayerReputationModel(databases.inspector);
+
 const Team = TeamModel(databases.inspector_teams);
 const TeamMember = TeamMemberModel(databases.inspector_teams);
 const TeamStats = TeamStatsModel(databases.inspector_teams);
@@ -126,6 +129,8 @@ module.exports.InspectorRole = InspectorRole;
 module.exports.InspectorUserRole = InspectorUserRole;
 
 module.exports.InspectorStat = InspectorStat;
+
+module.exports.InspectorPlayerReputation = InspectorPlayerReputation;
 
 module.exports.Team = Team;
 module.exports.TeamMember = TeamMember;

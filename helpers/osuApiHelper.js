@@ -259,3 +259,20 @@ async function Search(mode = 'all', query = '', page = 1) {
         throw new Error('Failed to search osu! API');
     }
 }
+
+module.exports.CheckAuth = CheckAuth;
+async function CheckAuth(access_token, user_id = null) {
+    try {
+        //just call Me endpoint to check if token is valid
+        const response = await GetOwnData(access_token);
+        if (response && response.id) {
+            if(user_id && response.id !== user_id){
+                throw new Error('Token does not belong to the specified user');
+            }
+            return true;
+        }
+    } catch (error) {
+        console.error('Error during auth check:', error);
+    }
+    return false;
+}
