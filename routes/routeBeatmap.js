@@ -3,6 +3,7 @@ const { AltBeatmapLive } = require('../helpers/db');
 const router = express.Router();
 const apicache = require('apicache-plus');
 const { FetchBeatmapFile } = require('../helpers/diffCalcHelper');
+const { GetTags } = require('../helpers/osuApiHelper');
 
 const BEATMAP_BATCH_SIZE = 10000;
 const BEATMAP_CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
@@ -20,6 +21,16 @@ router.get('/all', async (req, res) => {
         return res.status(200).json(beatmaps);
     } catch (error) {
         console.error('Error fetching all beatmaps:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.get('/tags', apicache('24 hours'), async (req, res) => {
+    try {
+        const tags = await GetTags();
+        return res.status(200).json(tags);
+    } catch (error) {
+        console.error('Error fetching tags:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
 });

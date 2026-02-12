@@ -74,7 +74,7 @@ async function AuthorizedApiCall(url, headers, timeout = 10000, post_body = null
             config.data = post_body;
         }
 
-        const response = await axios({...config, responseType: response_type || 'json' });
+        const response = await axios({ ...config, responseType: response_type || 'json' });
 
         if (response.status === 200) {
             return response.data;
@@ -203,7 +203,7 @@ async function GetUsers(userIds) {
             if (response && Array.isArray(response?.users)) {
                 allUsers = allUsers.concat(response?.users || []);
             }
-        }   
+        }
         return allUsers;
     } catch (error) {
         console.error('Error during getting users data:', error);
@@ -218,10 +218,10 @@ async function GetReplay(scoreId, read = true) {
         const response = await AuthorizedClientApiCall(url, 'get', null, 10000, null, 'application/x-osu-replay', 'arraybuffer');
         if (response) {
             //osr.reads expects a Buffer object
-            if(read){
+            if (read) {
                 const replay_data = await osr.read(Buffer.from(response));
                 return replay_data;
-            }else{
+            } else {
                 return Buffer.from(response);
             }
         }
@@ -266,7 +266,7 @@ async function CheckAuth(access_token, user_id = null) {
         //just call Me endpoint to check if token is valid
         const response = await GetOwnData(access_token);
         if (response && response.id) {
-            if(user_id && response.id !== user_id){
+            if (user_id && response.id !== user_id) {
                 throw new Error('Token does not belong to the specified user');
             }
             return true;
@@ -275,4 +275,19 @@ async function CheckAuth(access_token, user_id = null) {
         console.error('Error during auth check:', error);
     }
     return false;
+}
+
+module.exports.GetTags = GetTags;
+async function GetTags() {
+    try {
+        const url = `https://osu.ppy.sh/api/v2/tags`;
+        const response = await AuthorizedClientApiCall(url, 'get');
+        if (response) {
+            return response;
+        }
+        throw new Error('Invalid response from osu! API');
+    } catch (error) {
+        console.error('Error during getting tags:', error);
+        throw new Error('Failed to get tags from osu! API');
+    }
 }
