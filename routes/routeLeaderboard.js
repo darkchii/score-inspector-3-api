@@ -1,5 +1,5 @@
 const express = require('express');
-const { AltBeatmapLive, AltScoreLive, AltUserLive, Team, TeamStats } = require('../helpers/db');
+const { AltBeatmapLive, AltScoreLive, AltUserLive, Team, TeamStats, AltUserStat } = require('../helpers/db');
 const { FetchDifficultyData, FetchDifficultyDetailed } = require('../helpers/diffCalcHelper');
 const { OSU_SLUGS } = require('../helpers/osuHelper');
 const { GetReplay } = require('../helpers/osuApiHelper');
@@ -82,6 +82,13 @@ const LEADERBOARDS = {
         ruleset_is_index: true,
         where: [`mode = {ruleset}`],
         join: [[TeamStats, 'id', 'id']]
+    },
+    'completion': {
+        table: AltUserStat,
+        //bit more complex, need so select
+        selector: '(100.0 * value / total)',
+        ruleset_is_index: true,
+        where: ['mode_bucket = {ruleset_id} and fa_bucket = 2 and diff_bucket = 2 and metric_type = \'plays\''],
     }
 }
 
@@ -93,6 +100,8 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}', async (req, res) => {
         if (ruleset === 'all') {
             ruleset = 'total';
         }
+
+        const ruleset_id = OSU_SLUGS[ruleset];
         
         page = parseInt(page) || 1;
         dir = dir === 'asc' ? 'ASC' : 'DESC';
@@ -118,16 +127,18 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}', async (req, res) => {
         let baseSelectors = '';
         if (leaderboardDef.table === AltUserLive) {
             baseSelectors = 'user_id, username, ';
+        } else if (leaderboardDef.table === AltUserStat) {
+            baseSelectors = 'user_id, ';
         } else if (leaderboardDef.table === AltBeatmapLive) {
             baseSelectors = 'beatmap_id, title, artist, creator, ';
         } else if (leaderboardDef.table === Team) {
             baseSelectors = 'osu_teams.id, name, tag, ';
         }
 
-        let query_str = `SELECT ${baseSelectors}${selector} AS value
+        let query_str = `SELECT ${baseSelectors}${selector} AS res_value
             FROM ${leaderboardDef.table.getTableName()}
             ${leaderboardDef.join ? leaderboardDef.join.map(j => `INNER JOIN ${j[0].getTableName()} ON ${leaderboardDef.table.getTableName()}.${j[1]} = ${j[0].getTableName()}.${j[2]}`).join(' ') : ''}
-            ${leaderboardDef.where ? 'WHERE ' + leaderboardDef.where.map(w => w.replaceAll('{ruleset}', ruleset)).join(' AND ') : ''}
+            ${leaderboardDef.where ? 'WHERE ' + leaderboardDef.where.map(w => w.replaceAll('{ruleset}', ruleset).replaceAll('{ruleset_id}', ruleset_id)).join(' AND ') : ''}
             ORDER BY ( ${selector} IS NULL ) ASC, ${selector} ${dir}
             LIMIT :limit OFFSET :offset`;
 
@@ -144,21 +155,21 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}', async (req, res) => {
         }
 
         let leaderboard = [];
-        if (leaderboardDef.table === AltUserLive) {
+        if (leaderboardDef.table === AltUserLive || leaderboardDef.table === AltUserStat) {
             const users = await getFullUsers(data.map(d => d.user_id), false);
 
             //map data to include user info
             leaderboard = data.map(entry => {
                 const user = users.find(u => u.osuApi.id === parseInt(entry.user_id));
                 return {
-                    user: user || { id: entry.user_id, username: entry.username },
-                    value: entry.value
+                    user: user || { id: entry.user_id, username: entry.username || 'Unknown' },
+                    value: entry.res_value
                 };
             });
         }else if (leaderboardDef.table === AltBeatmapLive) {
             leaderboard = data.map(entry => ({
                 beatmap: entry,
-                value: entry.value
+                value: entry.res_value
             }));
         }else if (leaderboardDef.table === Team) {
             const teamIds = data.map(d => d.id);
@@ -168,7 +179,7 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}', async (req, res) => {
             });
             leaderboard = data.map(entry => ({
                 team: teams.find(t => t.id === entry.id) || entry,
-                value: entry.value
+                value: entry.res_value
             }));
         }
 
@@ -176,7 +187,7 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}', async (req, res) => {
             `SELECT COUNT(*) AS count
             FROM ${leaderboardDef.table.getTableName()}
             ${leaderboardDef.join ? leaderboardDef.join.map(j => `INNER JOIN ${j[0].getTableName()} ON ${leaderboardDef.table.getTableName()}.${j[1]} = ${j[0].getTableName()}.${j[2]}`).join(' ') : ''}
-            ${leaderboardDef.where ? 'WHERE ' + leaderboardDef.where.map(w => w.replaceAll('{ruleset}', ruleset)).join(' AND ') : ''}
+            ${leaderboardDef.where ? 'WHERE ' + leaderboardDef.where.map(w => w.replaceAll('{ruleset}', ruleset).replaceAll('{ruleset_id}', ruleset_id)).join(' AND ') : ''}
             `,
             {
                 type: Sequelize.QueryTypes.SELECT

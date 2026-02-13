@@ -119,6 +119,7 @@ Team.hasMany(TeamStats, { foreignKey: 'id', sourceKey: 'id' });
 
 module.exports.CheckConnection = CheckConnection;
 module.exports.AltUserLive = AltUserLive;
+module.exports.AltUserStat = AltUserStat;
 module.exports.AltBeatmapLive = AltBeatmapLive;
 module.exports.AltBeatmapPack = AltBeatmapPack;
 module.exports.AltScoreLive = AltScoreLive;
