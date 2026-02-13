@@ -10,11 +10,11 @@ const router = express.Router();
 const LEADERBOARDS = {
     'pp': {
         selector: '{ruleset}_pp',
-        table: AltUserLive
+        table: AltUserLive,
     },
     'ranked_score': {
         selector: '{ruleset}_ranked_score',
-        table: AltUserLive
+        table: AltUserLive,
     },
     'total_score': {
         selector: '{ruleset}_total_score',
@@ -89,12 +89,17 @@ const LEADERBOARDS = {
         selector: '(100.0 * value / total)',
         ruleset_is_index: true,
         where: ['mode_bucket = {ruleset_id} and fa_bucket = 2 and diff_bucket = 2 and metric_type = \'plays\''],
+        join: [[AltUserLive, 'user_id', 'user_id']]
     }
 }
 
 const DEFAULT_LEADERBOARD_LIMIT = 50;
-router.all('/:ruleset/:stat/:page{/:dir}{/:limit}', async (req, res) => {
-    let { ruleset, stat, page, dir, limit } = req.params;
+router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) => {
+    let { ruleset, stat, page, dir, limit, country } = req.params;
+
+    if(country && !/^[a-zA-Z]{2}$/.test(country)) {
+        return res.status(400).json({ error: 'Invalid country code' });
+    }
 
     try {
         if (ruleset === 'all') {
@@ -128,7 +133,7 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}', async (req, res) => {
         if (leaderboardDef.table === AltUserLive) {
             baseSelectors = 'user_id, username, ';
         } else if (leaderboardDef.table === AltUserStat) {
-            baseSelectors = 'user_id, ';
+            baseSelectors = 'userstats.user_id, ';
         } else if (leaderboardDef.table === AltBeatmapLive) {
             baseSelectors = 'beatmap_id, title, artist, creator, ';
         } else if (leaderboardDef.table === Team) {
@@ -138,7 +143,8 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}', async (req, res) => {
         let query_str = `SELECT ${baseSelectors}${selector} AS res_value
             FROM ${leaderboardDef.table.getTableName()}
             ${leaderboardDef.join ? leaderboardDef.join.map(j => `INNER JOIN ${j[0].getTableName()} ON ${leaderboardDef.table.getTableName()}.${j[1]} = ${j[0].getTableName()}.${j[2]}`).join(' ') : ''}
-            ${leaderboardDef.where ? 'WHERE ' + leaderboardDef.where.map(w => w.replaceAll('{ruleset}', ruleset).replaceAll('{ruleset_id}', ruleset_id)).join(' AND ') : ''}
+            WHERE 1=1 ${leaderboardDef.where ? 'AND ' + leaderboardDef.where.map(w => w.replaceAll('{ruleset}', ruleset).replaceAll('{ruleset_id}', ruleset_id)).join(' AND ') : ''}
+            ${country ? `AND ${leaderboardDef.country_column || 'country_code'} ILIKE '${country}'` : ''}
             ORDER BY ( ${selector} IS NULL ) ASC, ${selector} ${dir}
             LIMIT :limit OFFSET :offset`;
 
@@ -187,7 +193,8 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}', async (req, res) => {
             `SELECT COUNT(*) AS count
             FROM ${leaderboardDef.table.getTableName()}
             ${leaderboardDef.join ? leaderboardDef.join.map(j => `INNER JOIN ${j[0].getTableName()} ON ${leaderboardDef.table.getTableName()}.${j[1]} = ${j[0].getTableName()}.${j[2]}`).join(' ') : ''}
-            ${leaderboardDef.where ? 'WHERE ' + leaderboardDef.where.map(w => w.replaceAll('{ruleset}', ruleset).replaceAll('{ruleset_id}', ruleset_id)).join(' AND ') : ''}
+            WHERE 1=1 ${leaderboardDef.where ? 'AND ' + leaderboardDef.where.map(w => w.replaceAll('{ruleset}', ruleset).replaceAll('{ruleset_id}', ruleset_id)).join(' AND ') : ''}
+            ${country ? `AND ${leaderboardDef.country_column || 'country_code'} ILIKE '${country}'` : ''}
             `,
             {
                 type: Sequelize.QueryTypes.SELECT
