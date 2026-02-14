@@ -90,6 +90,79 @@ const LEADERBOARDS = {
         ruleset_is_index: true,
         where: ['mode_bucket = {ruleset_id} and fa_bucket = 2 and diff_bucket = 2 and metric_type = \'plays\''],
         join: [[AltUserLive, 'user_id', 'user_id']]
+    },
+    'beatmap_play_count': {
+        table: AltBeatmapLive,
+        selector: 'play_count',
+        ruleset_is_index: true,
+        where: ['mode in ({ruleset_id})'],
+    },
+    'beatmap_pass_count': {
+        table: AltBeatmapLive,
+        selector: 'pass_count',
+        ruleset_is_index: true,
+        where: ['mode in ({ruleset_id})'],
+    },
+    'beatmap_favourite_count': {
+        table: AltBeatmapLive,
+        selector: 'favourite_count',
+        ruleset_is_index: true,
+        where: ['mode in ({ruleset_id})'],
+    },
+    'beatmap_rating': {
+        table: AltBeatmapLive,
+        selector: 'rating',
+        ruleset_is_index: true,
+        where: ['mode in ({ruleset_id})'],
+    },
+    'beatmap_length': {
+        table: AltBeatmapLive,
+        selector: 'length',
+        ruleset_is_index: true,
+        where: ['mode in ({ruleset_id})'],
+    },
+    'beatmap_rank_date': {
+        table: AltBeatmapLive,
+        selector: 'ranked_date',
+        ruleset_is_index: true,
+        where: ['mode in ({ruleset_id})'],
+    },
+    'beatmap_rank_duration': {
+        table: AltBeatmapLive,
+        //selector: difference between ranked_date and submitted_date (absolute value)
+        selector: 'ABS(EXTRACT(EPOCH FROM (ranked_date - submitted_date)))', //rank duration in seconds
+        ruleset_is_index: true,
+        where: ['mode in ({ruleset_id})'],
+    },
+    'beatmap_circles': {
+        table: AltBeatmapLive,
+        selector: 'count_circles',
+        ruleset_is_index: true,
+        where: ['mode in ({ruleset_id})'],
+    },
+    'beatmap_sliders': {
+        table: AltBeatmapLive,
+        selector: 'count_sliders',
+        ruleset_is_index: true,
+        where: ['mode in ({ruleset_id})'],
+    },
+    'beatmap_spinners': {
+        table: AltBeatmapLive,
+        selector: 'count_spinners',
+        ruleset_is_index: true,
+        where: ['mode in ({ruleset_id})'],
+    },
+    'beatmap_objects': {
+        table: AltBeatmapLive,
+        selector: '(count_circles + count_sliders + count_spinners)',
+        ruleset_is_index: true,
+        where: ['mode in ({ruleset_id})'],
+    },
+    'beatmap_difficulty': {
+        table: AltBeatmapLive,
+        selector: 'stars',
+        ruleset_is_index: true,
+        where: ['mode in ({ruleset_id})'],
     }
 }
 
@@ -106,7 +179,7 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) 
             ruleset = 'total';
         }
 
-        const ruleset_id = OSU_SLUGS[ruleset];
+        let ruleset_id = OSU_SLUGS[ruleset];
         
         page = parseInt(page) || 1;
         dir = dir === 'asc' ? 'ASC' : 'DESC';
@@ -117,6 +190,12 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) 
         const leaderboardDef = LEADERBOARDS[stat];
         if (!leaderboardDef) {
             return res.status(400).json({ error: 'Invalid leaderboard stat' });
+        }
+
+        if(leaderboardDef.table === AltBeatmapLive){
+            if(ruleset_id === 4){
+                ruleset_id = '0,1,2,3';
+            }
         }
 
         if (leaderboardDef.ruleset_is_index) {
@@ -135,18 +214,24 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) 
         } else if (leaderboardDef.table === AltUserStat) {
             baseSelectors = 'userstats.user_id, ';
         } else if (leaderboardDef.table === AltBeatmapLive) {
-            baseSelectors = 'beatmap_id, title, artist, creator, ';
+            baseSelectors = 'beatmap_id, title, artist, mapper, ';
         } else if (leaderboardDef.table === Team) {
             baseSelectors = 'osu_teams.id, name, tag, ';
         }
 
+        let country_condition = '';
+        if (country && leaderboardDef.table !== AltBeatmapLive) {
+            country_condition = `${leaderboardDef.country_column || 'country_code'} ILIKE '${country}'`;
+        }
         let query_str = `SELECT ${baseSelectors}${selector} AS res_value
             FROM ${leaderboardDef.table.getTableName()}
             ${leaderboardDef.join ? leaderboardDef.join.map(j => `INNER JOIN ${j[0].getTableName()} ON ${leaderboardDef.table.getTableName()}.${j[1]} = ${j[0].getTableName()}.${j[2]}`).join(' ') : ''}
             WHERE 1=1 ${leaderboardDef.where ? 'AND ' + leaderboardDef.where.map(w => w.replaceAll('{ruleset}', ruleset).replaceAll('{ruleset_id}', ruleset_id)).join(' AND ') : ''}
-            ${country ? `AND ${leaderboardDef.country_column || 'country_code'} ILIKE '${country}'` : ''}
+            ${country_condition ? 'AND ' + country_condition : ''}
             ORDER BY ( ${selector} IS NULL ) ASC, ${selector} ${dir}
             LIMIT :limit OFFSET :offset`;
+
+        console.log(query_str.replaceAll(':limit', limit).replaceAll(':offset', offset));
 
         //raw query instead, the above seems bugged in sequelize v7
         const data = await leaderboardDef.table.sequelize.query(query_str,
@@ -173,10 +258,19 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) 
                 };
             });
         }else if (leaderboardDef.table === AltBeatmapLive) {
+            const beatmapIds = data.map(d => d.beatmap_id);
+            const beatmaps = await AltBeatmapLive.findAll({
+                where: { beatmap_id: { [Op.in]: beatmapIds } }
+            });
+
             leaderboard = data.map(entry => ({
-                beatmap: entry,
+                beatmap: beatmaps.find(b => b.beatmap_id === entry.beatmap_id) || entry,
                 value: entry.res_value
             }));
+            // leaderboard = data.map(entry => ({
+            //     beatmap: entry,
+            //     value: entry.res_value
+            // }));
         }else if (leaderboardDef.table === Team) {
             const teamIds = data.map(d => d.id);
             const teams = await Team.findAll({
@@ -194,7 +288,7 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) 
             FROM ${leaderboardDef.table.getTableName()}
             ${leaderboardDef.join ? leaderboardDef.join.map(j => `INNER JOIN ${j[0].getTableName()} ON ${leaderboardDef.table.getTableName()}.${j[1]} = ${j[0].getTableName()}.${j[2]}`).join(' ') : ''}
             WHERE 1=1 ${leaderboardDef.where ? 'AND ' + leaderboardDef.where.map(w => w.replaceAll('{ruleset}', ruleset).replaceAll('{ruleset_id}', ruleset_id)).join(' AND ') : ''}
-            ${country ? `AND ${leaderboardDef.country_column || 'country_code'} ILIKE '${country}'` : ''}
+            ${country_condition ? 'AND ' + country_condition : ''}
             `,
             {
                 type: Sequelize.QueryTypes.SELECT

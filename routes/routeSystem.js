@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const apicache = require('apicache-plus');
-const { Databases, CheckConnection } = require('../helpers/db');
+const { Databases, CheckConnection, InspectorNotification } = require('../helpers/db');
 
 router.get('/info', apicache('1 hour') ,async (req, res) => {
     try {
@@ -11,6 +11,21 @@ router.get('/info', apicache('1 hour') ,async (req, res) => {
     } catch (error) {
         console.error('Error fetching all packs:', error);
         return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.get('/alerts', async (req, res) => {
+    try{
+        const notifications  = await InspectorNotification.findAll({
+            where: {
+                enabled: true
+            },
+            order: [['created_at', 'DESC']]
+        });
+        res.json(notifications);
+    }catch(err){
+        console.error('Error fetching notifications:', err);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
