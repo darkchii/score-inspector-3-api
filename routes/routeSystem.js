@@ -36,7 +36,15 @@ router.get('/alerts', async (req, res) => {
 
 const realm_cache = multer({ storage: multer.memoryStorage() });
 const realm_version = 51; // Version as of 2026-02-15, should always match what live osu!lazer has
+let IP_CACHE = {}; //limit to one IP per minute, this is a fairly heavy task
 router.post('/process-realm', realm_cache.single('realmFile'), async (req, res) => {
+    const clientIp = req.ip;
+    const now = Date.now();
+    if (IP_CACHE[clientIp] && (now - IP_CACHE[clientIp] < 60 * 1000)) { //10 mins for testing
+        return res.status(429).json({ error: 'Too many requests, please wait a minute before trying again' });
+    }
+    IP_CACHE[clientIp] = now;
+
     if (!req.file) {
         return res.status(400).json({ error: 'No file uploaded' });
     }
