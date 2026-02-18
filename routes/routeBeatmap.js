@@ -10,14 +10,28 @@ const BEATMAP_CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
 let BEATMAP_LAST_UPDATED = null;
 let BEATMAP_CACHE = [];
 router.get('/all', async (req, res) => {
+    const { compact } = req.query;
     try {
-        if(BEATMAP_CACHE.length > 0 && BEATMAP_LAST_UPDATED && (Date.now() - BEATMAP_LAST_UPDATED < BEATMAP_CACHE_DURATION)) {
-            console.log('Serving beatmaps from cache');
-            return res.status(200).json(BEATMAP_CACHE);
+        let beatmaps = [];
+        if (BEATMAP_CACHE.length > 0 && BEATMAP_LAST_UPDATED && (Date.now() - BEATMAP_LAST_UPDATED < BEATMAP_CACHE_DURATION)) {
+            beatmaps = BEATMAP_CACHE;
+        } else {
+            beatmaps = await AltBeatmapLive.findAll({ raw: true });
+            BEATMAP_CACHE = beatmaps;
+            BEATMAP_LAST_UPDATED = Date.now();
         }
-        const beatmaps = await AltBeatmapLive.findAll({ raw: true });
-        BEATMAP_CACHE = beatmaps;
-        BEATMAP_LAST_UPDATED = Date.now();
+        if (compact === 'true') {
+            beatmaps = beatmaps.map(b => ({ 
+                beatmap_id: b.beatmap_id, 
+                beatmapset_id: b.beatmapset_id, 
+                version: b.version, 
+                mode: b.mode,
+                title: b.title,
+                artist: b.artist,
+                ranked_raw: b.ranked_raw,
+                checksum: b.checksum,
+            }));
+        }
         return res.status(200).json(beatmaps);
     } catch (error) {
         console.error('Error fetching all beatmaps:', error);
@@ -77,7 +91,7 @@ router.get('/:beatmapId', apicache('1 hour'), async (req, res) => {
             return res.status(200).json(Beatmap);
         } else {
             return res.status(404).json({ error: 'Beatmap not found' });
-        }   
+        }
     } catch (error) {
         console.error('Error fetching beatmap:', error);
         return res.status(500).json({ error: 'Internal server error' });
