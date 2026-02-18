@@ -49,6 +49,11 @@ router.post('/process-realm', realm_cache.single('realmFile'), async (req, res) 
         return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    //require .realm file
+    if (path.extname(req.file.originalname).toLowerCase() !== '.realm') {
+        return res.status(400).json({ error: 'Invalid file type, only .realm files are accepted' });
+    }
+
     const tempFilePath = path.join(
         os.tmpdir(),
         crypto.randomUUID() + ".realm"
