@@ -51,8 +51,6 @@ async function FetchDifficultyData(beatmapId, rulesetId = 0, mods = null) {
         }
     });
 
-    console.log('Difficulty data fetched:', response.data);
-
     if (response.status !== 200 || !response.data) {
         throw new Error('Failed to fetch difficulty data');
     }

@@ -194,6 +194,7 @@ module.exports.GetUsers = GetUsers;
 async function GetUsers(userIds) {
     try {
         //max 50 per request, so split into chunks
+        //no parallel requests due to rate limits
         let allUsers = [];
         for (let i = 0; i < userIds.length; i += 50) {
             const chunk = userIds.slice(i, i + 50);
