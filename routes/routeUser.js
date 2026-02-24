@@ -27,13 +27,6 @@ router.get('/search/:query', async (req, res) => {
                 }
             },
             order: [
-                //Order by relevance heuristic
-                [literal(`CASE
-                    WHEN LOWER(username) = '${_query}' THEN 1
-                    WHEN LOWER(username) LIKE '${_query}%' THEN 2
-                    WHEN LOWER(username) LIKE '%${_query}' THEN 3
-                    ELSE 4
-                END`), 'ASC'],
                 ['username', 'ASC']
             ],
             limit: 20
@@ -154,11 +147,13 @@ router.get('/people', apicache('2 hours'), async (req, res) => {
 router.post('/reputation', async (req, res) => {
     const { access_token, user_id, target_user_id } = req.body;
 
+    if(!access_token || !user_id || !target_user_id){
+        return res.status(400).json({ error: 'Access token, user ID, and target user ID are required' });
+    }
+
     try{
-        //validate access first
-        try{
-            CheckAuth(access_token, user_id); //will throw if invalid
-        }catch(err){
+        let auth = await CheckAuth(access_token, user_id);
+        if(!auth){
             return res.status(403).json({ error: 'Invalid access token' });
         }
 

@@ -5,7 +5,27 @@ const { ApplyRoutes } = require('./routes');
 const app = express();
 const port = 3863;
 
-app.use(cors());
+const allowedOrigins = new Set([
+  'https://score.kirino.sh',
+  'https://osualternative.com',
+  'https://www.osualternative.com',
+  'http://localhost:3006',
+  'http://localhost:5173',
+  'http://127.0.0.1:3006',
+  'http://127.0.0.1:5173',
+]);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // curl/postman/server-to-server
+    if (allowedOrigins.has(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: false,
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(compression({ level: 9 }));

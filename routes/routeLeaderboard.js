@@ -170,17 +170,22 @@ const DEFAULT_LEADERBOARD_LIMIT = 50;
 router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) => {
     let { ruleset, stat, page, dir, limit, country } = req.params;
 
-    if(country && !/^[a-zA-Z]{2}$/.test(country)) {
+    if (country && !/^[a-zA-Z]{2}$/.test(country)) {
         return res.status(400).json({ error: 'Invalid country code' });
     }
 
+    if (ruleset === 'all') {
+        ruleset = 'total';
+    }
+
+    if (!OSU_SLUGS.hasOwnProperty(ruleset === 'all' ? 'total' : ruleset)) {
+        return res.status(400).json({ error: 'Invalid ruleset' });
+    }
+
     try {
-        if (ruleset === 'all') {
-            ruleset = 'total';
-        }
 
         let ruleset_id = OSU_SLUGS[ruleset];
-        
+
         page = parseInt(page) || 1;
         dir = dir === 'asc' ? 'ASC' : 'DESC';
         limit = parseInt(limit) || DEFAULT_LEADERBOARD_LIMIT;
@@ -192,8 +197,8 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) 
             return res.status(400).json({ error: 'Invalid leaderboard stat' });
         }
 
-        if(leaderboardDef.table === AltBeatmapLive){
-            if(ruleset_id === 4){
+        if (leaderboardDef.table === AltBeatmapLive) {
+            if (ruleset_id === 4) {
                 ruleset_id = '0,1,2,3';
             }
         }
@@ -231,8 +236,6 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) 
             ORDER BY ( ${selector} IS NULL ) ASC, ${selector} ${dir}
             LIMIT :limit OFFSET :offset`;
 
-        console.log(query_str.replaceAll(':limit', limit).replaceAll(':offset', offset));
-
         //raw query instead, the above seems bugged in sequelize v7
         const data = await leaderboardDef.table.sequelize.query(query_str,
             {
@@ -248,37 +251,50 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) 
         let leaderboard = [];
         if (leaderboardDef.table === AltUserLive || leaderboardDef.table === AltUserStat) {
             const users = await getFullUsers(data.map(d => d.user_id), false);
+            const userMap = {};
+            users.forEach(u => {
+                userMap[u.osuApi.id] = u;
+            });
 
             //map data to include user info
             leaderboard = data.map(entry => {
-                const user = users.find(u => u.osuApi.id === parseInt(entry.user_id));
+                const user = userMap[parseInt(entry.user_id)];
                 return {
                     user: user || { id: entry.user_id, username: entry.username || 'Unknown' },
                     value: entry.res_value
                 };
             });
-        }else if (leaderboardDef.table === AltBeatmapLive) {
+        } else if (leaderboardDef.table === AltBeatmapLive) {
             const beatmapIds = data.map(d => d.beatmap_id);
             const beatmaps = await AltBeatmapLive.findAll({
                 where: { beatmap_id: { [Op.in]: beatmapIds } }
             });
 
+            const beatmapMap = {};
+            beatmaps.forEach(b => {
+                beatmapMap[b.beatmap_id] = b;
+            });
+
             leaderboard = data.map(entry => ({
-                beatmap: beatmaps.find(b => b.beatmap_id === entry.beatmap_id) || entry,
+                beatmap: beatmapMap[entry.beatmap_id] || entry,
                 value: entry.res_value
             }));
             // leaderboard = data.map(entry => ({
             //     beatmap: entry,
             //     value: entry.res_value
             // }));
-        }else if (leaderboardDef.table === Team) {
+        } else if (leaderboardDef.table === Team) {
             const teamIds = data.map(d => d.id);
             const teams = await Team.findAll({
                 where: { id: { [Op.in]: teamIds } },
                 include: [TeamStats]
             });
+            const teamMap = {};
+            teams.forEach(t => {
+                teamMap[t.id] = t;
+            });
             leaderboard = data.map(entry => ({
-                team: teams.find(t => t.id === entry.id) || entry,
+                team: teamMap[entry.id] || entry,
                 value: entry.res_value
             }));
         }
@@ -300,8 +316,7 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) 
             limit: limit,
             total_entries: countTotal,
             total_pages: Math.ceil(countTotal / limit),
-            entries: leaderboard,
-            query: query_str
+            entries: leaderboard
         });
     } catch (err) {
         console.error('Error fetching leaderboard:', err);

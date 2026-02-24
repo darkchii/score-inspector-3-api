@@ -156,7 +156,6 @@ async function AuthorizeCodeGrant(code, grant_type = 'authorization_code') {
             user_id: user.id
         }
     } catch (error) {
-        console.error('Error during authorization code grant:', error);
         throw new Error('Failed to authorize code grant');
     }
 }
