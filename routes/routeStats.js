@@ -48,7 +48,6 @@ router.get('/top-day/:ruleset', async (req, res) => {
             }
         }
 
-        console.log(`Found ${userIds.size} unique user IDs in top day stats.`);
         const userIdArray = Array.from(userIds);
 
         const userData = await getFullUsers(userIdArray);

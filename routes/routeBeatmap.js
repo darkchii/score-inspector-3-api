@@ -5,33 +5,71 @@ const apicache = require('apicache-plus');
 const { FetchBeatmapFile } = require('../helpers/diffCalcHelper');
 const { GetTags } = require('../helpers/osuApiHelper');
 
-const BEATMAP_BATCH_SIZE = 10000;
 const BEATMAP_CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
-let BEATMAP_LAST_UPDATED = null;
-let BEATMAP_CACHE = [];
+const COMPACT_ATTRIBUTES = [
+    'beatmap_id',
+    'beatmapset_id',
+    'version',
+    'mode',
+    'title',
+    'artist',
+    'ranked_raw',
+    'checksum',
+];
+
+const BEATMAP_CACHE = {
+    full: { data: null, updatedAt: null, refreshPromise: null },
+    compact: { data: null, updatedAt: null, refreshPromise: null },
+};
+
+const isCacheFresh = (entry) => (
+    entry.data !== null
+    && entry.updatedAt !== null
+    && (Date.now() - entry.updatedAt < BEATMAP_CACHE_DURATION)
+);
+
+const refreshBeatmapCache = async (cacheKey) => {
+    const cacheEntry = BEATMAP_CACHE[cacheKey];
+    if (cacheEntry.refreshPromise) {
+        return cacheEntry.refreshPromise;
+    }
+
+    const queryOptions = { raw: true };
+    if (cacheKey === 'compact') {
+        queryOptions.attributes = COMPACT_ATTRIBUTES;
+    }
+
+    cacheEntry.refreshPromise = AltBeatmapLive.findAll(queryOptions)
+        .then((beatmaps) => {
+            cacheEntry.data = beatmaps;
+            cacheEntry.updatedAt = Date.now();
+            return beatmaps;
+        })
+        .finally(() => {
+            cacheEntry.refreshPromise = null;
+        });
+
+    return cacheEntry.refreshPromise;
+};
+
 router.get('/all', async (req, res) => {
     const { compact } = req.query;
+    const cacheKey = compact === 'true' ? 'compact' : 'full';
+    const cacheEntry = BEATMAP_CACHE[cacheKey];
+
     try {
-        let beatmaps = [];
-        if (BEATMAP_CACHE.length > 0 && BEATMAP_LAST_UPDATED && (Date.now() - BEATMAP_LAST_UPDATED < BEATMAP_CACHE_DURATION)) {
-            beatmaps = BEATMAP_CACHE;
-        } else {
-            beatmaps = await AltBeatmapLive.findAll({ raw: true });
-            BEATMAP_CACHE = beatmaps;
-            BEATMAP_LAST_UPDATED = Date.now();
+        if (isCacheFresh(cacheEntry)) {
+            return res.status(200).json(cacheEntry.data);
         }
-        if (compact === 'true') {
-            beatmaps = beatmaps.map(b => ({ 
-                beatmap_id: b.beatmap_id, 
-                beatmapset_id: b.beatmapset_id, 
-                version: b.version, 
-                mode: b.mode,
-                title: b.title,
-                artist: b.artist,
-                ranked_raw: b.ranked_raw,
-                checksum: b.checksum,
-            }));
+
+        if (cacheEntry.data !== null) {
+            refreshBeatmapCache(cacheKey).catch((error) => {
+                console.error(`Error refreshing beatmap ${cacheKey} cache:`, error);
+            });
+            return res.status(200).json(cacheEntry.data);
         }
+
+        const beatmaps = await refreshBeatmapCache(cacheKey);
         return res.status(200).json(beatmaps);
     } catch (error) {
         console.error('Error fetching all beatmaps:', error);
