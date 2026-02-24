@@ -218,7 +218,7 @@ router.post('/process-realm', realmUploadMiddleware, async (req, res) => {
 
         //Fetch all of them, the client will check for mismatched status for example, so the user can update those maps
         const objects = realm.objects("BeatmapSet");
-        const result = Array.from(objects);
+        const result = Array.from(objects); //required
         const clonedResult = JSON.parse(JSON.stringify(result)); //Otherwise the data will be lost when realm is closed and error out
         realm.close();
         realm = null;

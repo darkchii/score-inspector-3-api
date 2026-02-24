@@ -63,8 +63,13 @@ async function getFullUsers(userIds, filterRestricted = false) {
         }
     });
 
+    const teamMap = {};
+    teams.forEach(t => {
+        teamMap[t.id] = t;
+    });
+
     for (const userId of Object.keys(users)) {
-        const teamData = teams.find(t => t.id === users[userId].osuApi?.team?.id);
+        const teamData = teamMap[users[userId].osuApi?.team?.id];
         users[userId].team = teamData || null;
     }
 
@@ -76,8 +81,16 @@ async function getFullUsers(userIds, filterRestricted = false) {
         include: [InspectorRole]
     });
 
+    const userRolesMap = {};
+    userRoles.forEach(r => {
+        if (!userRolesMap[r.user_id]) {
+            userRolesMap[r.user_id] = [];
+        }
+        userRolesMap[r.user_id].push(r.inspectorRole);
+    });
+
     for (const userId of Object.keys(users)) {
-        const rolesData = userRoles.filter(r => r.user_id === parseInt(userId)).map(r => r.inspectorRole);
+        const rolesData = userRolesMap[parseInt(userId)] || [];
         users[userId].roles = rolesData;
     }
 
@@ -88,8 +101,13 @@ async function getFullUsers(userIds, filterRestricted = false) {
         }
     });
 
+    const registrationMap = {};
+    registrations.forEach(r => {
+        registrationMap[r.user_id] = r;
+    });
+
     for (const userId of Object.keys(users)) {
-        const registrationData = registrations.find(r => parseInt(r.user_id) === parseInt(userId));
+        const registrationData = registrationMap[parseInt(userId)];
         users[userId].is_sync = registrationData?.is_synced || false;
     }
 
