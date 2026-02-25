@@ -1,11 +1,142 @@
 const express = require('express');
-const { AltBeatmapLive, AltScoreLive, AltUserLive, Team, TeamStats, AltUserStat } = require('../helpers/db');
+const { AltBeatmapLive, AltScoreLive, AltUserLive, Team, TeamStats, AltUserStat, getScoreRankModelByRuleset } = require('../helpers/db');
 const { FetchDifficultyData, FetchDifficultyDetailed } = require('../helpers/diffCalcHelper');
 const { OSU_SLUGS } = require('../helpers/osuHelper');
 const { GetReplay } = require('../helpers/osuApiHelper');
 const { getFullUsers } = require('../helpers/userHelper');
 const { Op, default: Sequelize } = require('@sequelize/core');
 const router = express.Router();
+
+router.get('/score-rank/info/:ruleset', async (req, res) => {
+    const { ruleset } = req.params;
+
+    //validate ruleset, no 'all' allowed here
+    if (!OSU_SLUGS.hasOwnProperty(ruleset)) {
+        return res.status(400).json({ error: 'Invalid ruleset' });
+    }
+
+    try {
+        const model = getScoreRankModelByRuleset(ruleset);
+        if (!model) {
+            return res.status(400).json({ error: 'Invalid ruleset' });
+        }
+
+        //find all unique dates in the table
+        const data = await model.findAll({
+            attributes: [
+                [Sequelize.fn('DISTINCT', Sequelize.col('date')), 'date']
+            ],
+            order: [['date', 'DESC']]
+        });
+
+        const dates = data.map(d => d.date);
+
+        res.json({
+            dates: dates
+        });
+    } catch (err) {
+        console.error('Error fetching score rank info:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+const SCORE_RANK_LIMIT = 50;
+const SCORE_RANK_VALID_STATS = ['rank', 'gained_score', 'gained_rank'];
+//gained stats need to compare with old_rank and old_ranked_score to calculate the gain
+//gained_rank would be old_rank - rank, gained_score would be ranked_score - old_ranked_score
+router.get('/score-rank/:ruleset/:stat/:date{/:page}', async (req, res) => {
+    const { ruleset, stat, date, page } = req.params;
+
+    //validate ruleset, no 'all' allowed here
+    if (!OSU_SLUGS.hasOwnProperty(ruleset)) {
+        return res.status(400).json({ error: 'Invalid ruleset' });
+    }
+
+    //validate stat
+    if (!SCORE_RANK_VALID_STATS.includes(stat)) {
+        return res.status(400).json({ error: 'Invalid stat, expected one of: ' + SCORE_RANK_VALID_STATS.join(', ') });
+    }
+
+    //date expected in YYYY-MM-DD format, validate it
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ error: 'Invalid date format, expected YYYY-MM-DD' });
+    }
+
+    try {
+        const model = getScoreRankModelByRuleset(ruleset);
+        if (!model) {
+            return res.status(400).json({ error: 'Invalid ruleset' });
+        }
+
+        const pageNum = parseInt(page) || 1;
+        const offset = (pageNum - 1) * SCORE_RANK_LIMIT;
+        const data = await model.findAll({
+            attributes: [
+                'user_id',
+                'username',
+                'rank',
+                'old_rank',
+                'ranked_score',
+                'old_ranked_score',
+                //calculate gained stats on the fly using sequelize literal, nulls should be 0
+                [Sequelize.literal(`COALESCE(rank, 0) - COALESCE(old_rank, rank, 0)`), 'gained_rank'],
+                [Sequelize.literal(`COALESCE(ranked_score, 0) - COALESCE(old_ranked_score, ranked_score, 0)`), 'gained_score']
+            ],
+            where: { date: date },
+            //nulls should always be last
+            order: [[stat, stat === 'gained_score' ? 'DESC' : 'ASC']],
+            limit: SCORE_RANK_LIMIT,
+            offset: offset
+        });
+
+        if (!data || data.length === 0) {
+            return res.status(404).json({ error: 'No score rank entries found for this date' });
+        }
+
+        const userIds = data.map(d => d.user_id);
+        const users = await getFullUsers(userIds, false);
+        const userMap = {};
+        users.forEach(u => {
+            userMap[u.osuApi.id] = u;
+        });
+
+        const entries = data.map(entry => ({
+            user: userMap[entry.user_id] || { id: entry.user_id, username: entry.username || 'Unknown' },
+            rank: entry.rank,
+            old_rank: entry.old_rank,
+            ranked_score: entry.ranked_score,
+            old_ranked_score: entry.old_ranked_score,
+            gained_rank: entry.get('gained_rank'),
+            gained_score: entry.get('gained_score')
+        }));
+
+        //add the data to the user objects themselves so the frontend can easily use it in itemlists
+        entries.forEach(entry => {
+            entry.user.score_rank = {
+                rank: entry.rank,
+                old_rank: entry.old_rank,
+                ranked_score: entry.ranked_score,
+                old_ranked_score: entry.old_ranked_score,
+                //invert gained_rank
+                gained_rank: -parseInt(entry.gained_rank, 10),
+                gained_score: entry.gained_score
+            };
+        });
+
+        const totalEntries = await model.count({ where: { date: date } });
+        return res.json({
+            date: date,
+            page: pageNum,
+            total_entries: totalEntries,
+            total_pages: Math.ceil(totalEntries / SCORE_RANK_LIMIT),
+            entries: entries
+        });
+
+    } catch (err) {
+        console.error('Error fetching score rank:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
 
 const LEADERBOARDS = {
     'pp': {

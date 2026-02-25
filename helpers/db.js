@@ -16,6 +16,7 @@ const TeamStatsModel = require('../models/TeamStatsModel');
 const { InspectorStatModel } = require('../models/InspectorStatModel');
 const InspectorPlayerReputationModel = require('../models/InspectorPlayerReputationModel');
 const InspectorNotificationModel = require('../models/InspectorNotificationModel');
+const { InspectorScoreRankModel } = require('../models/InspectorScoreRankModel');
 require('dotenv').config();
 
 let databases = {
@@ -102,6 +103,11 @@ const InspectorNotification = InspectorNotificationModel(databases.inspector);
 
 const InspectorPlayerReputation = InspectorPlayerReputationModel(databases.inspector);
 
+const InspectorOsuScoreRank = InspectorScoreRankModel(databases.inspector, 'score_rank_history_osu');
+const InspectorTaikoScoreRank = InspectorScoreRankModel(databases.inspector, 'score_rank_history_taiko');
+const InspectorCatchScoreRank = InspectorScoreRankModel(databases.inspector, 'score_rank_history_fruits');
+const InspectorManiaScoreRank = InspectorScoreRankModel(databases.inspector, 'score_rank_history_mania');
+
 const Team = TeamModel(databases.inspector_teams);
 const TeamMember = TeamMemberModel(databases.inspector_teams);
 const TeamStats = TeamStatsModel(databases.inspector_teams);
@@ -135,6 +141,32 @@ module.exports.InspectorStat = InspectorStat;
 module.exports.InspectorNotification = InspectorNotification;
 module.exports.InspectorPlayerReputation = InspectorPlayerReputation;
 
+module.exports.InspectorOsuScoreRank = InspectorOsuScoreRank;
+module.exports.InspectorTaikoScoreRank = InspectorTaikoScoreRank;
+module.exports.InspectorCatchScoreRank = InspectorCatchScoreRank;
+module.exports.InspectorManiaScoreRank = InspectorManiaScoreRank;
+
 module.exports.Team = Team;
 module.exports.TeamMember = TeamMember;
 module.exports.TeamStats = TeamStats;
+
+function getScoreRankModelByRuleset(ruleset) {
+    switch (ruleset) {
+        case 0:
+        case 'osu':
+            return InspectorOsuScoreRank;
+        case 1:
+        case 'taiko':
+            return InspectorTaikoScoreRank;
+        case 2:
+        case 'fruits':
+        case 'catch':
+            return InspectorCatchScoreRank;
+        case 3:
+        case 'mania':
+            return InspectorManiaScoreRank;
+        default:
+            throw new Error('Invalid ruleset');
+    }
+}
+module.exports.getScoreRankModelByRuleset = getScoreRankModelByRuleset;
