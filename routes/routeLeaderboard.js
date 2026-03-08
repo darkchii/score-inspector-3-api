@@ -359,12 +359,24 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) 
         if (country && leaderboardDef.table !== AltBeatmapLive) {
             country_condition = `${leaderboardDef.country_column || 'country_code'} ILIKE '${country}'`;
         }
-        let query_str = `SELECT ${baseSelectors}${selector} AS res_value
+        const innerOrderClause = `( ${selector} IS NULL ) ASC, ${selector} ${dir}`;
+        const outerOrderClause = `( res_value IS NULL ) ASC, res_value ${dir}`;
+        const diffExpression = dir === 'DESC' ? '(res_value - next_res_value)' : '(next_res_value - res_value)';
+        let query_str = `WITH ranked AS (
+            SELECT ${baseSelectors}${selector} AS res_value,
+                LEAD(${selector}) OVER (ORDER BY ${innerOrderClause}) AS next_res_value
             FROM ${leaderboardDef.table.getTableName()}
             ${leaderboardDef.join ? leaderboardDef.join.map(j => `INNER JOIN ${j[0].getTableName()} ON ${leaderboardDef.table.getTableName()}.${j[1]} = ${j[0].getTableName()}.${j[2]}`).join(' ') : ''}
             WHERE 1=1 ${leaderboardDef.where ? 'AND ' + leaderboardDef.where.map(w => w.replaceAll('{ruleset}', ruleset).replaceAll('{ruleset_id}', ruleset_id)).join(' AND ') : ''}
             ${country_condition ? 'AND ' + country_condition : ''}
-            ORDER BY ( ${selector} IS NULL ) ASC, ${selector} ${dir}
+        )
+            SELECT *,
+                CASE
+                    WHEN res_value IS NULL OR next_res_value IS NULL THEN NULL
+                    ELSE ${diffExpression}
+                END AS difference_value
+            FROM ranked
+            ORDER BY ${outerOrderClause}
             LIMIT :limit OFFSET :offset`;
 
         //raw query instead, the above seems bugged in sequelize v7
@@ -392,7 +404,8 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) 
                 const user = userMap[parseInt(entry.user_id)];
                 return {
                     user: user || { id: entry.user_id, username: entry.username || 'Unknown' },
-                    value: entry.res_value
+                    value: entry.res_value,
+                    difference_value: entry.difference_value
                 };
             });
         } else if (leaderboardDef.table === AltBeatmapLive) {
@@ -408,12 +421,9 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) 
 
             leaderboard = data.map(entry => ({
                 beatmap: beatmapMap[entry.beatmap_id] || entry,
-                value: entry.res_value
+                value: entry.res_value,
+                difference_value: entry.difference_value
             }));
-            // leaderboard = data.map(entry => ({
-            //     beatmap: entry,
-            //     value: entry.res_value
-            // }));
         } else if (leaderboardDef.table === Team) {
             const teamIds = data.map(d => d.id);
             const teams = await Team.findAll({
@@ -426,7 +436,8 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) 
             });
             leaderboard = data.map(entry => ({
                 team: teamMap[entry.id] || entry,
-                value: entry.res_value
+                value: entry.res_value,
+                difference_value: entry.difference_value
             }));
         }
 
