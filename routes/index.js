@@ -9,6 +9,7 @@ var routeLeaderboard = require('./routeLeaderboard');
 var routeTeam = require('./routeTeam');
 var routeStats = require('./routeStats');
 var routeSystem = require('./routeSystem');
+var routeReputation = require('./routeReputation');
 
 let routes = [
     {
@@ -54,6 +55,10 @@ let routes = [
     {
         path: '/system',
         route: routeSystem
+    },
+    {
+        path: '/reputation',
+        route: routeReputation
     }
 ];
 

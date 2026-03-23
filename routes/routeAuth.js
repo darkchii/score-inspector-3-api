@@ -1,6 +1,8 @@
 const express = require('express');
 const { AuthorizeCodeGrant, GetOwnData } = require('../helpers/osuApiHelper');
 const { getFullUsers } = require('../helpers/userHelper');
+const { InspectorPlayerReputation } = require('../helpers/db');
+const { fn, col } = require('@sequelize/core');
 const router = express.Router();
 
 router.post('/login', async (req, res) => {
@@ -63,6 +65,25 @@ router.post('/me', async (req, res) => {
         if (response && response.id) {
             const data = await getFullUsers([response.id]);
             if (data && data.length > 0) {
+                //get the most recent reputation entry for this user, per type
+                const reputations = await InspectorPlayerReputation.findAll({
+                    //only need the most recent date, nothing else
+                    attributes: ['target_type', [fn('MAX', col('created_at')), 'latest_reputation_date']],
+                    group: ['target_type'],
+                    where: {
+                        target_type: 'user',
+                        user_id: response.id
+                    },
+                    order: [['created_at', 'DESC']]
+                });
+
+                const reputationMap = {};
+                reputations.forEach(r => {
+                    reputationMap[r.dataValues.target_type] = r.dataValues.latest_reputation_date;
+                });
+
+                data[0].reputation = reputationMap;
+
                 return res.status(200).json(data[0]);
             } else {
                 return res.status(400).json({ error: 'User not found in database' });

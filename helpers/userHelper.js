@@ -1,4 +1,4 @@
-const { AltUserLive, AltRegistration, Team, InspectorUserRole, InspectorRole } = require("./db");
+const { AltUserLive, AltRegistration, Team, InspectorUserRole, InspectorRole, InspectorPlayerReputation } = require("./db");
 const { GetUsers, GetUserData } = require("./osuApiHelper");
 
 async function getFullUsers(userIds, filterRestricted = false) {
@@ -92,6 +92,26 @@ async function getFullUsers(userIds, filterRestricted = false) {
     for (const userId of Object.keys(users)) {
         const rolesData = userRolesMap[parseInt(userId)] || [];
         users[userId].roles = rolesData;
+    }
+
+    // Fetch reputation count
+    const reputations = await InspectorPlayerReputation.findAll({
+        where: {
+            target_type: 'user',
+            target_id: userIds
+        }
+    });
+
+    const reputationMap = {};
+    reputations.forEach(r => {
+        if (!reputationMap[r.target_id]) {
+            reputationMap[r.target_id] = 0;
+        }
+        reputationMap[r.target_id]++;
+    });
+
+    for (const userId of Object.keys(users)) {
+        users[userId].reputation_count = reputationMap[parseInt(userId)] || 0;
     }
 
     // Fetch registered/synced status
