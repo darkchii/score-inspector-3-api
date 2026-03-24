@@ -17,6 +17,7 @@ const { InspectorStatModel } = require('../models/InspectorStatModel');
 const InspectorPlayerReputationModel = require('../models/InspectorPlayerReputationModel');
 const InspectorNotificationModel = require('../models/InspectorNotificationModel');
 const { InspectorScoreRankModel } = require('../models/InspectorScoreRankModel');
+const InspectorPlayerVisitorModel = require('../models/InspectorPlayerVisitorModel');
 require('dotenv').config();
 
 let databases = {
@@ -102,6 +103,7 @@ const InspectorStat = InspectorStatModel(databases.inspector);
 const InspectorNotification = InspectorNotificationModel(databases.inspector);
 
 const InspectorPlayerReputation = InspectorPlayerReputationModel(databases.inspector);
+const InspectorPlayerVisitor = InspectorPlayerVisitorModel(databases.inspector);
 
 const InspectorOsuScoreRank = InspectorScoreRankModel(databases.inspector, 'score_rank_history_osu');
 const InspectorTaikoScoreRank = InspectorScoreRankModel(databases.inspector, 'score_rank_history_taiko');
@@ -140,6 +142,7 @@ module.exports.InspectorUserRole = InspectorUserRole;
 module.exports.InspectorStat = InspectorStat;
 module.exports.InspectorNotification = InspectorNotification;
 module.exports.InspectorPlayerReputation = InspectorPlayerReputation;
+module.exports.InspectorPlayerVisitor = InspectorPlayerVisitor;
 
 module.exports.InspectorOsuScoreRank = InspectorOsuScoreRank;
 module.exports.InspectorTaikoScoreRank = InspectorTaikoScoreRank;
