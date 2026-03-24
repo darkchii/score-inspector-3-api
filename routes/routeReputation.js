@@ -5,7 +5,8 @@ const { Op, literal } = require('@sequelize/core');
 const { getFullUsers } = require('../helpers/userHelper');
 const router = express.Router();
 
-const VALID_REP_TYPES = ['user', 'score', 'beatmap'];
+const VALID_REP_TYPES = ['user'];
+// const VALID_REP_TYPES = ['user', 'score', 'beatmap'];
 //expects form-data with access_token, user_id, target_id, and type (user, score, beatmap)
 router.post('/', async (req, res) => {
     const { token, userId, targetId, type } = req.body;
@@ -107,6 +108,7 @@ router.get('/top/:type', async (req, res) => {
             _reputations = _reputations.filter(r => r.user);
         }
 
+        _reputations.sort((a, b) => b.rep_count - a.rep_count);
         _reputations.splice(10);
 
         return res.status(200).json({
