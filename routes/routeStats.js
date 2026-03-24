@@ -84,7 +84,8 @@ router.get('/global-stats', async (req, res) => {
                     'beatmap_counts',
                     'score_counts',
                     'user_counts',
-                    'team_counts'
+                    'team_counts',
+                    'reputation_counts'
                 ]
             }
         })
