@@ -11,7 +11,7 @@ const VALID_REP_TYPES = ['user'];
 router.post('/', async (req, res) => {
     const { token, userId, targetId, type } = req.body;
 
-    if(!token || !userId || !targetId || !type){
+    if (!token || !userId || !targetId || !type) {
         return res.status(400).json({ error: 'Token, user ID, target ID, and type are required' });
     }
 
@@ -19,9 +19,9 @@ router.post('/', async (req, res) => {
         return res.status(400).json({ error: 'Invalid reputation type' });
     }
 
-    try{
+    try {
         let auth = await CheckAuth(token, userId);
-        if(!auth){
+        if (!auth) {
             return res.status(403).json({ error: 'Invalid access token' });
         }
 
@@ -52,10 +52,10 @@ router.post('/', async (req, res) => {
             target_type: type
         });
 
-        return res.status(200).json({ 
+        return res.status(200).json({
             message: 'Reputation given successfully',
         });
-    }catch(err){
+    } catch (err) {
         console.error('Error during reputation change:', err);
         return res.status(500).json({ error: 'Internal server error' });
     }
@@ -83,13 +83,13 @@ router.get('/top/:type', async (req, res) => {
         });
 
         //get users
-        switch(type){
+        switch (type) {
             case 'user':
                 const userIds = reputations.map(r => r.target_id);
                 const users = await getFullUsers(userIds, true);
                 const userMap = {};
                 users.forEach(user => {
-                    if(!user || !user.osuApi) return;
+                    if (!user || !user.osuApi) return;
                     userMap[user.osuApi?.id] = user;
                 });
                 reputations.forEach(rep => {
@@ -104,7 +104,7 @@ router.get('/top/:type', async (req, res) => {
 
         let _reputations = reputations.map(r => r.dataValues);
         //filter out non-users
-        if(type === 'user'){
+        if (type === 'user') {
             _reputations = _reputations.filter(r => r.user);
         }
 
@@ -122,27 +122,30 @@ router.get('/top/:type', async (req, res) => {
     }
 });
 
-router.get('/:type/:targetId', async (req, res) => {
-    const { type, targetId } = req.params;
-
-    if (!VALID_REP_TYPES.includes(type)) {
-        return res.status(400).json({ error: 'Invalid reputation type' });
-    }
+router.get('/user/:targetId', async (req, res) => {
+    const { targetId } = req.params;
 
     try {
-        const reputations = await InspectorPlayerReputation.findAll({
+        const reputation_given = await InspectorPlayerReputation.findAll({
             where: {
-                target_type: type,
+                target_type: 'user',
+                user_id: targetId
+            },
+        });
+
+        const reputation_received = await InspectorPlayerReputation.findAll({
+            where: {
+                target_type: 'user',
                 target_id: targetId
-            }
+            },
         });
-        
+
         return res.status(200).json({
-            targetId: targetId,
-            targetType: type,
-            count: reputations.length,
-            reputations: reputations
+            user: targetId,
+            reputation_given: reputation_given.map(r => r.dataValues),
+            reputation_received: reputation_received.map(r => r.dataValues)
         });
+
     } catch (error) {
         console.error('Error during reputation retrieval:', error);
         return res.status(500).json({ error: 'Internal server error' });

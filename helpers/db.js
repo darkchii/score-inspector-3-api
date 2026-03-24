@@ -75,13 +75,13 @@ async function CheckConnection(database, timeout = 10000) {
         }),
         new Promise((resolve, reject) => {
             setTimeout(() => {
-                reject(new Error('Connection timeout'));
+                reject(new Error(`Connection timeout (server: ${database.options.host}, database: ${database.options.database})`));
             }, timeout);
         })
     ]);
 
     if (!success) {
-        throw new Error('Connection failed');
+        throw new Error(`Connection failed (server: ${database.options.host}, database: ${database.options.database})`);
     }
 
     return success;
