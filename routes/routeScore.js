@@ -3,8 +3,9 @@ const { Search } = require('../helpers/osuApiHelper');
 const { AltUserLive, CheckConnection, Databases, AltScoreLive, AltBeatmapLive } = require('../helpers/db');
 const { FetchDifficultyData } = require('../helpers/diffCalcHelper');
 const router = express.Router();
+const apicache = require('apicache-plus');
 
-router.get('/:scoreId', async (req, res) => {
+router.get('/:scoreId', apicache('15 minutes'), async (req, res) => {
     const { scoreId } = req.params;
     const { fullData } = req.query; // If true, return beatmap, extra difficulty data along with score
     if (!scoreId) {
