@@ -294,6 +294,27 @@ const LEADERBOARDS = {
         selector: 'stars',
         ruleset_is_index: true,
         where: ['mode in ({ruleset_id})'],
+    },
+    'team_id': {
+        table: Team,
+        selector: 'osu_teams.id',
+        ruleset_is_index: true,
+        where: ['mode = {ruleset}'],
+        join: [[TeamStats, 'osu_teams.id', 'id']]
+    },
+    'team_members': {
+        table: Team,
+        selector: 'osu_teams.members',
+        ruleset_is_index: true,
+        where: ['mode = {ruleset}'],
+        join: [[TeamStats, 'osu_teams.id', 'id']]
+    },
+    'team_play_count': {
+        table: Team,
+        selector: 'osu_teams_ruleset.play_count',
+        ruleset_is_index: true,
+        where: ['mode = {ruleset}'],
+        join: [[TeamStats, 'osu_teams.id', 'id']]
     }
 }
 
@@ -352,7 +373,7 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) 
         } else if (leaderboardDef.table === AltBeatmapLive) {
             baseSelectors = 'beatmap_id, title, artist, mapper, ';
         } else if (leaderboardDef.table === Team) {
-            baseSelectors = 'osu_teams.id, name, tag, ';
+            baseSelectors = 'osu_teams.id, name, short_name, ';
         }
 
         let country_condition = '';
@@ -430,10 +451,23 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) 
                 where: { id: { [Op.in]: teamIds } },
                 include: [TeamStats]
             });
-            const teamMap = {};
+            //each team has an array of stats (team.teamStats).
+            //the selected mode needs to merge into the parent object, and then remove teamStats
+            let _teams = [];
             teams.forEach(t => {
+                const stats = t.teamStats.find(s => s.mode === ruleset);
+                if (stats) {
+                    const teamData = t.toJSON();
+                    delete teamData.teamStats;
+                    _teams.push({ ...teamData, ...stats.toJSON() });
+                }
+            });
+
+            const teamMap = {};
+            _teams.forEach(t => {
                 teamMap[t.id] = t;
             });
+
             leaderboard = data.map(entry => ({
                 team: teamMap[entry.id] || entry,
                 value: entry.res_value,
