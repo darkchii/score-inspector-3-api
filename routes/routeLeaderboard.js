@@ -299,21 +299,98 @@ const LEADERBOARDS = {
         table: Team,
         selector: 'osu_teams.id',
         ruleset_is_index: true,
-        where: ['mode = {ruleset}'],
+        where: ['mode = {ruleset}', 'deleted = false'],
         join: [[TeamStats, 'osu_teams.id', 'id']]
     },
     'team_members': {
         table: Team,
         selector: 'osu_teams.members',
         ruleset_is_index: true,
-        where: ['mode = {ruleset}'],
+        where: ['mode = {ruleset}', 'deleted = false'],
         join: [[TeamStats, 'osu_teams.id', 'id']]
     },
     'team_play_count': {
         table: Team,
         selector: 'osu_teams_ruleset.play_count',
         ruleset_is_index: true,
-        where: ['mode = {ruleset}'],
+        where: ['mode = {ruleset}', 'deleted = false'],
+        join: [[TeamStats, 'osu_teams.id', 'id']]
+    },
+    'team_ranked_score': {
+        table: Team,
+        selector: 'osu_teams_ruleset.ranked_score',
+        ruleset_is_index: true,
+        where: ['mode = {ruleset}', 'deleted = false'],
+        join: [[TeamStats, 'osu_teams.id', 'id']]
+    },
+    'team_average_score': {
+        table: Team,
+        selector: 'osu_teams_ruleset.average_score',
+        ruleset_is_index: true,
+        where: ['mode = {ruleset}', 'deleted = false'],
+        join: [[TeamStats, 'osu_teams.id', 'id']]
+    },
+    'team_performance': {
+        table: Team,
+        selector: 'osu_teams_ruleset.performance',
+        ruleset_is_index: true,
+        where: ['mode = {ruleset}', 'deleted = false'],
+        join: [[TeamStats, 'osu_teams.id', 'id']]
+    },
+    'team_clears': {
+        table: Team,
+        selector: 'osu_teams_ruleset.clears',
+        ruleset_is_index: true,
+        where: ['mode = {ruleset}', 'deleted = false'],
+        join: [[TeamStats, 'osu_teams.id', 'id']]
+    },
+    'team_total_ss': {
+        table: Team,
+        selector: 'osu_teams_ruleset.total_ss',
+        ruleset_is_index: true,
+        where: ['mode = {ruleset}', 'deleted = false'],
+        join: [[TeamStats, 'osu_teams.id', 'id']]
+    },
+    'team_total_s': {
+        table: Team,
+        selector: 'osu_teams_ruleset.total_s',
+        ruleset_is_index: true,
+        where: ['mode = {ruleset}', 'deleted = false'],
+        join: [[TeamStats, 'osu_teams.id', 'id']]
+    },
+    'team_total_a': {
+        table: Team,
+        selector: 'osu_teams_ruleset.total_a',
+        ruleset_is_index: true,
+        where: ['mode = {ruleset}', 'deleted = false'],
+        join: [[TeamStats, 'osu_teams.id', 'id']]
+    },
+    'team_total_score': {
+        table: Team,
+        selector: 'osu_teams_ruleset.total_score',
+        ruleset_is_index: true,
+        where: ['mode = {ruleset}', 'deleted = false'],
+        join: [[TeamStats, 'osu_teams.id', 'id']]
+    },
+    'team_play_time': {
+        table: Team,
+        selector: 'osu_teams_ruleset.play_time',
+        ruleset_is_index: true,
+        where: ['mode = {ruleset}', 'deleted = false'],
+        join: [[TeamStats, 'osu_teams.id', 'id']]
+    },
+    'team_total_hits': {
+        table: Team,
+        selector: 'osu_teams_ruleset.total_hits',
+        ruleset_is_index: true,
+        where: ['mode = {ruleset}', 'deleted = false'],
+        join: [[TeamStats, 'osu_teams.id', 'id']]
+    },
+    'team_replays_watched': {
+        table: Team,
+        selector: 'osu_teams_ruleset.replays_watched',
+        ruleset_is_index: true,
+        where: ['mode = {ruleset}', 'deleted = false'],
         join: [[TeamStats, 'osu_teams.id', 'id']]
     }
 }
