@@ -3,7 +3,9 @@ const { AltBeatmapLive } = require('../helpers/db');
 const router = express.Router();
 const apicache = require('apicache-plus');
 const { FetchBeatmapFile } = require('../helpers/diffCalcHelper');
-const { GetTags } = require('../helpers/osuApiHelper');
+const { GetTags, GetBeatmap, GetBeatmapset } = require('../helpers/osuApiHelper');
+const { Op } = require('@sequelize/core');
+const { getFullUsers } = require('../helpers/userHelper');
 
 const BEATMAP_CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
 const COMPACT_ATTRIBUTES = [
@@ -15,6 +17,61 @@ const COMPACT_ATTRIBUTES = [
     'artist',
     'ranked_raw',
     'checksum',
+];
+
+const BATCH_ATTRIBUTES = [
+    'beatmap_id',
+    'mapper_id',
+    'beatmapset_id',
+    'mode',
+    'status',
+    'stars',
+    'od',
+    'ar',
+    'bpm',
+    'cs',
+    'hp',
+    'length',
+    'drain_time',
+    'count_circles',
+    'count_sliders',
+    'count_spinners',
+    'max_combo',
+    'pass_count',
+    'play_count',
+    'fc_count',
+    'ss_count',
+    'favourite_count',
+    'ranked_date',
+    'submitted_date',
+    'last_updated',
+    'version',
+    'title',
+    'artist',
+    'source',
+    'tags',
+    'checksum',
+    'track_id',
+    'pack',
+    'lchg_time',
+    'mapper',
+    'is_nsfw',
+    'beatmap_offset',
+    'rating',
+    'is_spotlight',
+    'genre',
+    'language',
+    'has_video',
+    'has_storyboard',
+    'download_disabled',
+    'mode_str',
+    'is_convert',
+    'current_user_playcount',
+    'beatmap_deleted_at',
+    'beatmap_is_scoreable',
+    'ranked_raw',
+    'url',
+    'owners'
 ];
 
 const BEATMAP_CACHE = {
@@ -37,6 +94,8 @@ const refreshBeatmapCache = async (cacheKey) => {
     const queryOptions = { raw: true };
     if (cacheKey === 'compact') {
         queryOptions.attributes = COMPACT_ATTRIBUTES;
+    } else {
+        queryOptions.attributes = BATCH_ATTRIBUTES; //adding ALL attributes generates too much data that we don't need
     }
 
     cacheEntry.refreshPromise = AltBeatmapLive.findAll(queryOptions)
@@ -111,6 +170,42 @@ router.get('/:beatmapId/file', apicache('1 hour'), async (req, res) => {
     }
 });
 
+router.get('/set/:beatmapsetId', apicache('1 hour'), async (req, res) => {
+    const { beatmapsetId } = req.params;
+    if (!beatmapsetId) {
+        return res.status(400).json({ error: 'Beatmapset ID parameter is required' });
+    }
+
+    try {
+        const set = await GetBeatmapset(beatmapsetId);
+        let ownerIds = [];
+        [...set.beatmaps, ...set.converts].forEach((b) => {
+            let subOwnerIds = b.owners ? b.owners.map((o) => o.id) : [];
+            ownerIds.push(...subOwnerIds);
+        });
+        ownerIds = [...new Set(ownerIds)]; //deduplicate
+        const owners = await getFullUsers(ownerIds);
+        console.log('Owners:', ownerIds);
+        [...set.beatmaps, ...set.converts].forEach((b) => {
+            //reapply owners (overriding with full user data)
+            if (b.owners) {
+                b.owners.forEach((o) => {
+                    const fullOwnerData = owners.find((u) => u.osuApi.id === o.id);
+                    o.user = fullOwnerData || null;
+                })
+            }
+        });
+        if (set) {
+            return res.status(200).json(set);
+        } else {
+            return res.status(404).json({ error: 'Beatmapset not found' });
+        }
+    } catch (error) {
+        console.error('Error fetching beatmapset:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 router.get('/:beatmapId', apicache('1 hour'), async (req, res) => {
     //Validate beatmapId
     const { beatmapId } = req.params;
@@ -124,9 +219,27 @@ router.get('/:beatmapId', apicache('1 hour'), async (req, res) => {
     }
 
     try {
-        const Beatmap = await AltBeatmapLive.findOne({ where: { beatmap_id: beatmapId } });
-        if (Beatmap) {
-            return res.status(200).json(Beatmap);
+        // const Beatmap = await AltBeatmapLive.findOne({ where: { beatmap_id: beatmapId } });
+        // if (Beatmap) {
+        //     const beatmapset = await AltBeatmapLive.findAll({
+        //         where: {
+        //             beatmapset_id: Beatmap.beatmapset_id,
+        //         },
+        //         attributes: BATCH_ATTRIBUTES,
+        //         raw: true,
+        //     });
+        //     // Beatmap.beatmapSet = beatmapSet;
+        //     const _map = {
+        //         ...Beatmap.get({ plain: true }),
+        //         beatmapset
+        //     }
+        //     return res.status(200).json(_map);
+        // } else {
+        //     return res.status(404).json({ error: 'Beatmap not found' });
+        // }
+        const beatmap = await GetBeatmap(beatmapId);
+        if (beatmap) {
+            return res.status(200).json(beatmap);
         } else {
             return res.status(404).json({ error: 'Beatmap not found' });
         }

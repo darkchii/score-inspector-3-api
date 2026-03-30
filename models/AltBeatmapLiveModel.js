@@ -1,5 +1,13 @@
 const { DataTypes } = require("@sequelize/core");
 
+const getJsonDataType = (db) => {
+    if (db.getDialect() === 'postgres') {
+        return DataTypes.JSONB;
+    } else {
+        return DataTypes.JSON;
+    }
+};
+
 const AltBeatmapLiveModel = (db) => db.define('BeatmapLive', {
     beatmap_id: { type: DataTypes.INTEGER, primaryKey: true },
     mapper_id: { type: DataTypes.INTEGER },
@@ -52,8 +60,30 @@ const AltBeatmapLiveModel = (db) => db.define('BeatmapLive', {
     beatmap_is_scoreable: { type: DataTypes.BOOLEAN },
     ranked_raw: { type: DataTypes.INTEGER },
     url: { type: DataTypes.STRING },
-    //jsonb
-    owners: { type: DataTypes.JSONB }
+    beatmapset_artist_unicode: { type: DataTypes.STRING },
+    beatmapset_hype_current: { type: DataTypes.INTEGER },
+    beatmapset_hype_required: { type: DataTypes.INTEGER },
+    beatmapset_play_count: { type: DataTypes.INTEGER },
+    beatmapset_status_raw: { type: DataTypes.STRING },
+    beatmapset_title_unicode: { type: DataTypes.STRING },
+    beatmapset_user_id: { type: DataTypes.INTEGER },
+    beatmapset_bpm: { type: DataTypes.FLOAT },
+    beatmapset_can_be_hyped: { type: DataTypes.BOOLEAN },
+    beatmapset_deleted_at: { type: DataTypes.DATE },
+    beatmapset_discussion_enabled: { type: DataTypes.BOOLEAN },
+    beatmapset_discussion_locked: { type: DataTypes.BOOLEAN },
+    beatmapset_is_scoreable: { type: DataTypes.BOOLEAN },
+    beatmapset_last_updated_raw: { type: DataTypes.DATE },
+    beatmapset_legacy_thread_url: { type: DataTypes.STRING },
+    beatmapset_ranked: { type: DataTypes.INTEGER },
+    beatmapset_storyboard_raw: { type: DataTypes.BOOLEAN },
+    beatmapset_tags_raw: { type: DataTypes.TEXT },
+    failtimes: { type: getJsonDataType(db) },
+    beatmapset_availability: { type: getJsonDataType(db) },
+    owners: { type: getJsonDataType(db) },
+    beatmapset_nominations_summary: { type: getJsonDataType(db) },
+    beatmapset_covers: { type: getJsonDataType(db) },
+    beatmapset_ratings: { type: getJsonDataType(db) }
 }, {
     tableName: 'beatmapfull',
     timestamps: false

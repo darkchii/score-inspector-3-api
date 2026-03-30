@@ -247,6 +247,38 @@ async function GetScore(scoreId) {
     }
 }
 
+module.exports.GetBeatmap = GetBeatmap;
+async function GetBeatmap(beatmapId) {
+    try {
+        const url = `https://osu.ppy.sh/api/v2/beatmaps/${beatmapId}`;
+        const response = await AuthorizedClientApiCall(url, 'get');
+        if (response) {
+            return response;
+        }
+        throw new Error('Invalid response from osu! API');
+    }
+    catch (error) {
+        console.error('Error during getting beatmap data:', error);
+        throw new Error('Failed to get beatmap data from osu! API');
+    }
+}
+
+module.exports.GetBeatmapset = GetBeatmapset;
+async function GetBeatmapset(beatmapsetId) {
+    try {
+        const url = `https://osu.ppy.sh/api/v2/beatmapsets/${beatmapsetId}`;
+        const response = await AuthorizedClientApiCall(url, 'get');
+        if (response) {
+            return response;
+        }
+        throw new Error('Invalid response from osu! API');
+    }
+    catch (error) {
+        console.error('Error during getting beatmapset data:', error);
+        throw new Error('Failed to get beatmapset data from osu! API');
+    }
+}
+
 module.exports.Search = Search;
 async function Search(mode = 'all', query = '', page = 1) {
     try {
