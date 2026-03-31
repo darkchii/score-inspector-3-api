@@ -178,23 +178,58 @@ router.get('/set/:beatmapsetId', apicache('1 hour'), async (req, res) => {
 
     try {
         const set = await GetBeatmapset(beatmapsetId);
-        let ownerIds = [];
+        let userIds = [];
         [...set.beatmaps, ...set.converts].forEach((b) => {
             let subOwnerIds = b.owners ? b.owners.map((o) => o.id) : [];
-            ownerIds.push(...subOwnerIds);
+            userIds.push(...subOwnerIds);
+
+            userIds.push(b.user_id); //also add mapper_id as owner
         });
-        ownerIds = [...new Set(ownerIds)]; //deduplicate
-        const owners = await getFullUsers(ownerIds);
-        console.log('Owners:', ownerIds);
+        userIds.push(set.user_id);
+
+        //parse the description
+        //find user ids from the following
+        //tags with class 'js-userlink' & data-user-id attribute
+        //urls: https://osu.ppy.sh/users/123456 or https://osu.ppy.sh/u/123456
+        let descriptionUserIds = [];
+        const userIdRegex = /data-user-id="(\d+)"/g;
+        let match;
+        while ((match = userIdRegex.exec(set.description?.description)) !== null) {
+            descriptionUserIds.push(match[1]);
+        }
+        const urlRegex = /https?:\/\/osu\.ppy\.sh\/(?:users|u)\/(\d+)/g;
+        while ((match = urlRegex.exec(set.description?.description)) !== null) {
+            descriptionUserIds.push(match[1]);
+        }
+        //add them to userIds as well
+        userIds.push(...descriptionUserIds);
+
+        descriptionUserIds = [...new Set(descriptionUserIds)]; //deduplicate description user ids
+        userIds = [...new Set(userIds)]; //deduplicate
+        let users = await getFullUsers(userIds);
+
+        //filter nulls
+        users = users.filter((u) => u !== null);
+
+        let _userMap = {};
+        users.forEach((o) => {
+            _userMap[o.osuApi.id] = o;
+        });
+
         [...set.beatmaps, ...set.converts].forEach((b) => {
             //reapply owners (overriding with full user data)
             if (b.owners) {
                 b.owners.forEach((o) => {
-                    const fullOwnerData = owners.find((u) => u.osuApi.id === o.id);
+                    const fullOwnerData = _userMap[o.id];
                     o.user = fullOwnerData || null;
                 })
             }
+
+            b.mapper = _userMap[b.user_id] || null;
         });
+        set.mapper = _userMap[set.user_id] || null;
+        set.description_user_data = descriptionUserIds.map((id) => _userMap[id] || null).filter((u) => u !== null);
+
         if (set) {
             return res.status(200).json(set);
         } else {

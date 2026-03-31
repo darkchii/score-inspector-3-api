@@ -147,6 +147,22 @@ const LEADERBOARDS = {
         selector: '{ruleset}_ranked_score',
         table: AltUserLive,
     },
+    'lazer_score': {
+        selector: 'sum(scorelive.total_score)',
+        table: AltScoreLive,
+        ruleset_is_index: true,
+        where: ['ruleset_id in ({ruleset}) and highest_score = true'],
+        join: [[AltUserLive, 'user_id_fk', 'user_id']],
+        group: ['user_id_fk', 'username']
+    },
+    'classic_score': {
+        selector: 'sum(scorelive.classic_total_score)',
+        table: AltScoreLive,
+        ruleset_is_index: true,
+        where: ['ruleset_id in ({ruleset}) and highest_score = true'],
+        join: [[AltUserLive, 'user_id_fk', 'user_id']],
+        group: ['user_id_fk', 'username']
+    },
     'total_score': {
         selector: '{ruleset}_total_score',
         table: AltUserLive
@@ -211,7 +227,7 @@ const LEADERBOARDS = {
         selector: 'osu_teams_ruleset.play_count',
         table: Team,
         ruleset_is_index: true,
-        where: [`mode = {ruleset}`],
+        where: [`mode in ({ruleset}) and deleted = false`],
         join: [[TeamStats, 'id', 'id']]
     },
     'completion': {
@@ -219,7 +235,7 @@ const LEADERBOARDS = {
         //bit more complex, need so select
         selector: '(100.0 * value / total)',
         ruleset_is_index: true,
-        where: ['mode_bucket = {ruleset_id} and fa_bucket = 2 and diff_bucket = 2 and metric_type = \'plays\''],
+        where: ['mode_bucket in ({ruleset_id}) and fa_bucket = 2 and diff_bucket = 2 and metric_type = \'plays\''],
         join: [[AltUserLive, 'user_id', 'user_id']]
     },
     'beatmap_play_count': {
@@ -289,6 +305,14 @@ const LEADERBOARDS = {
         ruleset_is_index: true,
         where: ['mode in ({ruleset_id})'],
     },
+    'beatmap_owners': {
+        table: AltBeatmapLive,
+        //jsonb array of mappers, need to count the amount (however if none, the value is {})
+        //always add 1
+        selector: 'CASE WHEN owners = \'{}\' THEN 1 ELSE (jsonb_array_length(owners) + 1) END',
+        ruleset_is_index: true,
+        where: ['mode in ({ruleset_id})'],
+    },
     'beatmap_difficulty': {
         table: AltBeatmapLive,
         selector: 'stars',
@@ -299,98 +323,98 @@ const LEADERBOARDS = {
         table: Team,
         selector: 'osu_teams.id',
         ruleset_is_index: true,
-        where: ['mode = {ruleset}', 'deleted = false'],
+        where: ['mode in ({ruleset})', 'deleted = false'],
         join: [[TeamStats, 'osu_teams.id', 'id']]
     },
     'team_members': {
         table: Team,
         selector: 'osu_teams.members',
         ruleset_is_index: true,
-        where: ['mode = {ruleset}', 'deleted = false'],
+        where: ['mode in ({ruleset})', 'deleted = false'],
         join: [[TeamStats, 'osu_teams.id', 'id']]
     },
     'team_play_count': {
         table: Team,
         selector: 'osu_teams_ruleset.play_count',
         ruleset_is_index: true,
-        where: ['mode = {ruleset}', 'deleted = false'],
+        where: ['mode in ({ruleset})', 'deleted = false'],
         join: [[TeamStats, 'osu_teams.id', 'id']]
     },
     'team_ranked_score': {
         table: Team,
         selector: 'osu_teams_ruleset.ranked_score',
         ruleset_is_index: true,
-        where: ['mode = {ruleset}', 'deleted = false'],
+        where: ['mode in ({ruleset})', 'deleted = false'],
         join: [[TeamStats, 'osu_teams.id', 'id']]
     },
     'team_average_score': {
         table: Team,
         selector: 'osu_teams_ruleset.average_score',
         ruleset_is_index: true,
-        where: ['mode = {ruleset}', 'deleted = false'],
+        where: ['mode in ({ruleset})', 'deleted = false'],
         join: [[TeamStats, 'osu_teams.id', 'id']]
     },
     'team_performance': {
         table: Team,
         selector: 'osu_teams_ruleset.performance',
         ruleset_is_index: true,
-        where: ['mode = {ruleset}', 'deleted = false'],
+        where: ['mode in ({ruleset})', 'deleted = false'],
         join: [[TeamStats, 'osu_teams.id', 'id']]
     },
     'team_clears': {
         table: Team,
         selector: 'osu_teams_ruleset.clears',
         ruleset_is_index: true,
-        where: ['mode = {ruleset}', 'deleted = false'],
+        where: ['mode in ({ruleset})', 'deleted = false'],
         join: [[TeamStats, 'osu_teams.id', 'id']]
     },
     'team_total_ss': {
         table: Team,
         selector: 'osu_teams_ruleset.total_ss',
         ruleset_is_index: true,
-        where: ['mode = {ruleset}', 'deleted = false'],
+        where: ['mode in ({ruleset})', 'deleted = false'],
         join: [[TeamStats, 'osu_teams.id', 'id']]
     },
     'team_total_s': {
         table: Team,
         selector: 'osu_teams_ruleset.total_s',
         ruleset_is_index: true,
-        where: ['mode = {ruleset}', 'deleted = false'],
+        where: ['mode in ({ruleset})', 'deleted = false'],
         join: [[TeamStats, 'osu_teams.id', 'id']]
     },
     'team_total_a': {
         table: Team,
         selector: 'osu_teams_ruleset.total_a',
         ruleset_is_index: true,
-        where: ['mode = {ruleset}', 'deleted = false'],
+        where: ['mode in ({ruleset})', 'deleted = false'],
         join: [[TeamStats, 'osu_teams.id', 'id']]
     },
     'team_total_score': {
         table: Team,
         selector: 'osu_teams_ruleset.total_score',
         ruleset_is_index: true,
-        where: ['mode = {ruleset}', 'deleted = false'],
+        where: ['mode in ({ruleset})', 'deleted = false'],
         join: [[TeamStats, 'osu_teams.id', 'id']]
     },
     'team_play_time': {
         table: Team,
         selector: 'osu_teams_ruleset.play_time',
         ruleset_is_index: true,
-        where: ['mode = {ruleset}', 'deleted = false'],
+        where: ['mode in ({ruleset})', 'deleted = false'],
         join: [[TeamStats, 'osu_teams.id', 'id']]
     },
     'team_total_hits': {
         table: Team,
         selector: 'osu_teams_ruleset.total_hits',
         ruleset_is_index: true,
-        where: ['mode = {ruleset}', 'deleted = false'],
+        where: ['mode in ({ruleset})', 'deleted = false'],
         join: [[TeamStats, 'osu_teams.id', 'id']]
     },
     'team_replays_watched': {
         table: Team,
         selector: 'osu_teams_ruleset.replays_watched',
         ruleset_is_index: true,
-        where: ['mode = {ruleset}', 'deleted = false'],
+        where: ['mode in ({ruleset})', 'deleted = false'],
         join: [[TeamStats, 'osu_teams.id', 'id']]
     }
 }
@@ -438,6 +462,9 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) 
                 return res.status(400).json({ error: 'Invalid ruleset' });
             }
             ruleset = rulesetIndex;
+            if(ruleset === 4 && leaderboardDef.table === AltScoreLive){
+                ruleset = '0,1,2,3';
+            }
         }
 
         let selector = leaderboardDef.selector.replaceAll('{ruleset}', ruleset);
@@ -445,6 +472,8 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) 
         let baseSelectors = '';
         if (leaderboardDef.table === AltUserLive) {
             baseSelectors = 'user_id, username, ';
+        } else if (leaderboardDef.table === AltScoreLive) {
+            baseSelectors = 'user_id_fk as user_id, username, ';
         } else if (leaderboardDef.table === AltUserStat) {
             baseSelectors = 'userstats.user_id, ';
         } else if (leaderboardDef.table === AltBeatmapLive) {
@@ -467,6 +496,7 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) 
             ${leaderboardDef.join ? leaderboardDef.join.map(j => `INNER JOIN ${j[0].getTableName()} ON ${leaderboardDef.table.getTableName()}.${j[1]} = ${j[0].getTableName()}.${j[2]}`).join(' ') : ''}
             WHERE 1=1 ${leaderboardDef.where ? 'AND ' + leaderboardDef.where.map(w => w.replaceAll('{ruleset}', ruleset).replaceAll('{ruleset_id}', ruleset_id)).join(' AND ') : ''}
             ${country_condition ? 'AND ' + country_condition : ''}
+            ${leaderboardDef.group ? 'GROUP BY ' + leaderboardDef.group.join(', ') : ''}
         )
             SELECT *,
                 CASE
@@ -476,6 +506,8 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) 
             FROM ranked
             ORDER BY ${outerOrderClause}
             LIMIT :limit OFFSET :offset`;
+
+        console.log(query_str);
 
         //raw query instead, the above seems bugged in sequelize v7
         const data = await leaderboardDef.table.sequelize.query(query_str,
@@ -490,7 +522,7 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) 
         }
 
         let leaderboard = [];
-        if (leaderboardDef.table === AltUserLive || leaderboardDef.table === AltUserStat) {
+        if (leaderboardDef.table === AltUserLive || leaderboardDef.table === AltUserStat || leaderboardDef.table === AltScoreLive) {
             const users = await getFullUsers(data.map(d => d.user_id), false);
             const userMap = {};
             users.forEach(u => {
@@ -558,6 +590,7 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) 
             ${leaderboardDef.join ? leaderboardDef.join.map(j => `INNER JOIN ${j[0].getTableName()} ON ${leaderboardDef.table.getTableName()}.${j[1]} = ${j[0].getTableName()}.${j[2]}`).join(' ') : ''}
             WHERE 1=1 ${leaderboardDef.where ? 'AND ' + leaderboardDef.where.map(w => w.replaceAll('{ruleset}', ruleset).replaceAll('{ruleset_id}', ruleset_id)).join(' AND ') : ''}
             ${country_condition ? 'AND ' + country_condition : ''}
+            ${leaderboardDef.group ? 'GROUP BY ' + leaderboardDef.group.join(', ') : ''}
             `,
             {
                 type: Sequelize.QueryTypes.SELECT

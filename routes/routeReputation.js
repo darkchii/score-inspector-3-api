@@ -79,7 +79,7 @@ router.get('/top/:type', async (req, res) => {
             ],
             group: ['target_id'],
             order: [[literal('rep_count'), 'DESC']],
-            limit: 20
+            limit: 10
         });
 
         //get users
@@ -109,7 +109,7 @@ router.get('/top/:type', async (req, res) => {
         }
 
         _reputations.sort((a, b) => b.rep_count - a.rep_count);
-        _reputations.splice(10);
+        _reputations.splice(5);
 
         return res.status(200).json({
             targetType: type,

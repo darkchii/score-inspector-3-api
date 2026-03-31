@@ -97,7 +97,7 @@ router.get('/recent', async (req, res) => {
             attributes: ['target_id', [literal('MAX(updated_at)'), 'last_visited']],
             group: ['target_id'],
             order: [[literal('last_visited'), 'DESC']],
-            limit: 20 //leeway for banned users even if the chance is 0
+            limit: 10 //leeway for banned users even if the chance is 0
         });
         const targetIds = recentVisitors.map(v => v.target_id);
         const users = await getFullUsers(targetIds, true);
@@ -114,7 +114,7 @@ router.get('/recent', async (req, res) => {
         //filter out entries where user is null (not found in osu!api)
         result = result.filter(r => r.user !== null);
         result = result.sort((a, b) => new Date(b.last_visited) - new Date(a.last_visited)); //sort by last visited desc
-        result = result.slice(0, 10); //limit to 10 entries
+        result = result.slice(0, 5); //limit to 5 entries
         return res.status(200).json(result);
     }
     catch (err) {
