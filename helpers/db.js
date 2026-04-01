@@ -18,6 +18,7 @@ const InspectorPlayerReputationModel = require('../models/InspectorPlayerReputat
 const InspectorNotificationModel = require('../models/InspectorNotificationModel');
 const { InspectorScoreRankModel } = require('../models/InspectorScoreRankModel');
 const InspectorPlayerVisitorModel = require('../models/InspectorPlayerVisitorModel');
+const InspectorBeatmapMediaModel = require('../models/InspectorBeatmapMediaModel');
 require('dotenv').config();
 
 let databases = {
@@ -110,6 +111,8 @@ const InspectorTaikoScoreRank = InspectorScoreRankModel(databases.inspector, 'sc
 const InspectorCatchScoreRank = InspectorScoreRankModel(databases.inspector, 'score_rank_history_fruits');
 const InspectorManiaScoreRank = InspectorScoreRankModel(databases.inspector, 'score_rank_history_mania');
 
+const InspectorBeatmapMedia = InspectorBeatmapMediaModel(databases.inspector);
+
 const Team = TeamModel(databases.inspector_teams);
 const TeamMember = TeamMemberModel(databases.inspector_teams);
 const TeamStats = TeamStatsModel(databases.inspector_teams);
@@ -148,6 +151,8 @@ module.exports.InspectorOsuScoreRank = InspectorOsuScoreRank;
 module.exports.InspectorTaikoScoreRank = InspectorTaikoScoreRank;
 module.exports.InspectorCatchScoreRank = InspectorCatchScoreRank;
 module.exports.InspectorManiaScoreRank = InspectorManiaScoreRank;
+
+module.exports.InspectorBeatmapMedia = InspectorBeatmapMedia;
 
 module.exports.Team = Team;
 module.exports.TeamMember = TeamMember;
