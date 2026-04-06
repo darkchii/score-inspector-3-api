@@ -1,9 +1,11 @@
 const express = require('express');
-const { AltBeatmapLive, InspectorBeatmapMedia, AltScoreLive } = require('../helpers/db');
+const { AltBeatmapLive, InspectorBeatmapMedia, AltScoreLive, InspectorUserRole, InspectorRole } = require('../helpers/db');
 const router = express.Router();
 const apicache = require('apicache-plus');
+const routeCache = apicache.newInstance();
+const cache = routeCache.middleware;
 const { FetchBeatmapFile } = require('../helpers/diffCalcHelper');
-const { GetTags, GetBeatmap, GetBeatmapset, GetBeatmapScores } = require('../helpers/osuApiHelper');
+const { GetTags, GetBeatmap, GetBeatmapset, GetBeatmapScores, GetOwnData } = require('../helpers/osuApiHelper');
 const { Op } = require('@sequelize/core');
 const { getFullUsers } = require('../helpers/userHelper');
 const { OSU_SLUGS } = require('../helpers/osuHelper');
@@ -80,6 +82,112 @@ const BEATMAP_CACHE = {
     compact: { data: null, updatedAt: null, refreshPromise: null },
 };
 
+function extractYoutubeId(input) {
+    if (typeof input !== 'string') {
+        return null;
+    }
+
+    const value = input.trim();
+    if (!value) {
+        return null;
+    }
+
+    if (/^[a-zA-Z0-9_-]{11}$/.test(value)) {
+        return value;
+    }
+
+    try {
+        const parsed = new URL(value);
+        const host = parsed.hostname.toLowerCase();
+
+        if (host.includes('youtu.be')) {
+            const candidate = parsed.pathname.split('/').filter(Boolean)[0] || '';
+            return /^[a-zA-Z0-9_-]{11}$/.test(candidate) ? candidate : null;
+        }
+
+        if (host.includes('youtube.com')) {
+            const fromQuery = parsed.searchParams.get('v');
+            if (fromQuery && /^[a-zA-Z0-9_-]{11}$/.test(fromQuery)) {
+                return fromQuery;
+            }
+
+            const pathParts = parsed.pathname.split('/').filter(Boolean);
+            if (pathParts[0] === 'embed' || pathParts[0] === 'shorts') {
+                const candidate = pathParts[1] || '';
+                return /^[a-zA-Z0-9_-]{11}$/.test(candidate) ? candidate : null;
+            }
+        }
+    } catch (error) {
+        return null;
+    }
+
+    return null;
+}
+
+function extractSpotifyPath(input) {
+    if (typeof input !== 'string') {
+        return null;
+    }
+
+    const value = input.trim();
+    if (!value) {
+        return null;
+    }
+
+    const spotifyPathRegex = /^(track|album|playlist|episode|show)\/([a-zA-Z0-9]{22})$/;
+    const spotifyUriRegex = /^spotify:(track|album|playlist|episode|show):([a-zA-Z0-9]{22})$/;
+
+    if (spotifyPathRegex.test(value)) {
+        return value;
+    }
+
+    const uriMatch = value.match(spotifyUriRegex);
+    if (uriMatch) {
+        return `${uriMatch[1]}/${uriMatch[2]}`;
+    }
+
+    try {
+        const parsed = new URL(value);
+        const host = parsed.hostname.toLowerCase();
+        if (!host.includes('spotify.com')) {
+            return null;
+        }
+
+        const pathParts = parsed.pathname.split('/').filter(Boolean);
+        if (pathParts[0] === 'embed') {
+            pathParts.shift();
+        }
+
+        if (pathParts.length < 2) {
+            return null;
+        }
+
+        const type = pathParts[0];
+        const id = pathParts[1];
+        const normalized = `${type}/${id}`;
+        return spotifyPathRegex.test(normalized) ? normalized : null;
+    } catch (error) {
+        return null;
+    }
+}
+
+async function hasEditorAccess(userId) {
+    const userRoles = await InspectorUserRole.findAll({
+        where: { user_id: userId },
+        include: [InspectorRole]
+    });
+
+    if (!userRoles || userRoles.length === 0) {
+        return false;
+    }
+
+    return userRoles.some((entry) => {
+        const role = entry.inspectorRole || {};
+        const title = (role.title || '').toString().toLowerCase();
+        return entry.role_id === 5 || title === 'editor' || role.is_editor === true || role.is_admin === true;
+    });
+}
+
 const isCacheFresh = (entry) => (
     entry.data !== null
     && entry.updatedAt !== null
@@ -137,7 +245,7 @@ router.get('/all', async (req, res) => {
     }
 });
 
-router.get('/tags', apicache('24 hours'), async (req, res) => {
+router.get('/tags', cache('24 hours'), async (req, res) => {
     try {
         const tags = await GetTags();
         return res.status(200).json(tags);
@@ -147,7 +255,7 @@ router.get('/tags', apicache('24 hours'), async (req, res) => {
     }
 });
 
-router.get('/:beatmapId/file', apicache('1 hour'), async (req, res) => {
+router.get('/:beatmapId/file', cache('1 hour'), async (req, res) => {
     const { beatmapId } = req.params;
     if (!beatmapId) {
         return res.status(400).json({ error: 'Beatmap ID parameter is required' });
@@ -171,8 +279,9 @@ router.get('/:beatmapId/file', apicache('1 hour'), async (req, res) => {
     }
 });
 
-router.get('/set/:beatmapsetId', apicache('1 hour'), async (req, res) => {
+router.get('/set/:beatmapsetId', cache('1 hour'), async (req, res) => {
     const { beatmapsetId } = req.params;
+    req.apicacheGroup = `beatmapset-${beatmapsetId}`;
     if (!beatmapsetId) {
         return res.status(400).json({ error: 'Beatmapset ID parameter is required' });
     }
@@ -251,8 +360,71 @@ router.get('/set/:beatmapsetId', apicache('1 hour'), async (req, res) => {
     }
 });
 
+router.post('/set/:beatmapsetId/media', async (req, res) => {
+    const { beatmapsetId } = req.params;
+    const { access_token, youtube_url, spotify_url } = req.body || {};
+
+    if (!beatmapsetId || isNaN(beatmapsetId)) {
+        return res.status(400).json({ error: 'Beatmapset ID must be a number' });
+    }
+
+    if (!access_token || typeof access_token !== 'string') {
+        return res.status(401).json({ error: 'Access token is required' });
+    }
+
+    let oauthUser = null;
+    try {
+        oauthUser = await GetOwnData(access_token);
+    } catch (error) {
+        console.error('Failed to validate access token for media update:', error);
+        return res.status(401).json({ error: 'Invalid access token' });
+    }
+
+    if (!oauthUser || !oauthUser.id) {
+        return res.status(401).json({ error: 'Invalid user data from access token' });
+    }
+
+    try {
+        const editorAccess = await hasEditorAccess(oauthUser.id);
+        if (!editorAccess) {
+            return res.status(403).json({ error: 'Editor role is required' });
+        }
+
+        const normalizedYoutubeId = youtube_url ? extractYoutubeId(youtube_url) : null;
+        if (youtube_url && !normalizedYoutubeId) {
+            return res.status(400).json({ error: 'Invalid YouTube URL or video ID' });
+        }
+
+        const normalizedSpotifyPath = spotify_url ? extractSpotifyPath(spotify_url) : null;
+        if (spotify_url && !normalizedSpotifyPath) {
+            return res.status(400).json({ error: 'Invalid Spotify URL, URI, or embed path' });
+        }
+
+        const values = {
+            beatmapset_id: parseInt(beatmapsetId, 10),
+            youtube_id: normalizedYoutubeId || null,
+            spotify_id: normalizedSpotifyPath || null,
+        };
+
+        const [media] = await InspectorBeatmapMedia.upsert(values, { returning: true });
+
+        if (typeof routeCache.clear === 'function') {
+            routeCache.clear(`beatmapset-${beatmapsetId}`);
+        }
+
+        return res.status(200).json({
+            beatmapset_id: values.beatmapset_id,
+            youtube_id: media?.youtube_id ?? values.youtube_id,
+            spotify_id: media?.spotify_id ?? values.spotify_id,
+        });
+    } catch (error) {
+        console.error('Error updating beatmap media:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 const ALT_LIMIT = 1000;
-router.all('/:beatmapId/scores/{:ruleset}', apicache('1 hour'), async (req, res) => {
+router.all('/:beatmapId/scores/{:ruleset}', cache('1 hour'), async (req, res) => {
     const { beatmapId, ruleset } = req.params;
     //option mods in body
     const { mods } = req.body || {};
@@ -323,7 +495,7 @@ router.all('/:beatmapId/scores/{:ruleset}', apicache('1 hour'), async (req, res)
     }
 });
 
-router.get('/:beatmapId', apicache('1 hour'), async (req, res) => {
+router.get('/:beatmapId', cache('1 hour'), async (req, res) => {
     //Validate beatmapId
     const { beatmapId } = req.params;
     if (!beatmapId) {
