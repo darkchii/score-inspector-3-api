@@ -318,7 +318,13 @@ router.get('/set/:beatmapsetId', cache('1 hour'), async (req, res) => {
 
             descriptionUserIds = [...new Set(descriptionUserIds)]; //deduplicate description user ids
             userIds = [...new Set(userIds)]; //deduplicate
-            let users = await getFullUsers(userIds);
+            // let users = await getFullUsers(userIds);
+            let users = [];
+            try {
+                users = await getFullUsers(userIds);
+            }catch (error) {
+                //Do nothing, assume banned from osu
+            }
 
             //filter nulls
             users = users.filter((u) => u !== null);

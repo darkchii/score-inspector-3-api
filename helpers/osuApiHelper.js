@@ -79,9 +79,17 @@ async function AuthorizedApiCall(url, headers, timeout = 10000, post_body = null
         if (response.status === 200) {
             return response.data;
         } else {
+            //if the route is /api/v2/users/ and 404s, it means the user doesn't exist, rather than the path being wrong, so return null instead of throwing an error
+            if (url.includes('/api/v2/users/') && response.status === 404) {
+                return null;
+            }
             throw new Error(`API call failed with status code ${response.status}`);
         }
     } catch (error) {
+        //same user 404 handling as above
+        if (error.response && error.response.status === 404 && url.includes('/api/v2/users/')) {
+            return null;
+        }
         console.error('Error during authorized API call:', error);
         throw new Error('Failed to make authorized API call');
     }

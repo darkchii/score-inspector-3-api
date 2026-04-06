@@ -11,6 +11,7 @@ var routeStats = require('./routeStats');
 var routeSystem = require('./routeSystem');
 var routeReputation = require('./routeReputation');
 var routeVisitor = require('./routeVisitor');
+var routeAdmin = require('./routeAdmin');
 
 let routes = [
     {
@@ -64,6 +65,10 @@ let routes = [
     {
         path: '/visitor',
         route: routeVisitor
+    },
+    {
+        path: '/admin',
+        route: routeAdmin
     }
 ];
 
