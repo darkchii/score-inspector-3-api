@@ -279,6 +279,27 @@ async function GetBeatmapset(beatmapsetId) {
     }
 }
 
+module.exports.GetBeatmapScores = GetBeatmapScores;
+async function GetBeatmapScores(beatmapId, ruleset = null, mods = null) {
+    try {
+        let url = `https://osu.ppy.sh/api/v2/beatmaps/${beatmapId}/scores?limit=100`;
+        if (ruleset !== null) {
+            url += `&mode=${ruleset}`;
+        }
+        if (mods !== null) {
+            url += ruleset !== null ? `&mods=${mods}` : `?mods=${mods}`;
+        }
+        const response = await AuthorizedClientApiCall(url, 'get');
+        if (response) {
+            return response;
+        }
+    }
+    catch (error) {
+        console.error('Error during getting beatmap scores:', error);
+        throw new Error('Failed to get beatmap scores from osu! API');
+    }
+}
+
 module.exports.Search = Search;
 async function Search(mode = 'all', query = '', page = 1) {
     try {

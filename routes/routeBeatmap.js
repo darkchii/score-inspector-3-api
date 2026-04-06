@@ -1,11 +1,12 @@
 const express = require('express');
-const { AltBeatmapLive, InspectorBeatmapMedia } = require('../helpers/db');
+const { AltBeatmapLive, InspectorBeatmapMedia, AltScoreLive } = require('../helpers/db');
 const router = express.Router();
 const apicache = require('apicache-plus');
 const { FetchBeatmapFile } = require('../helpers/diffCalcHelper');
-const { GetTags, GetBeatmap, GetBeatmapset } = require('../helpers/osuApiHelper');
+const { GetTags, GetBeatmap, GetBeatmapset, GetBeatmapScores } = require('../helpers/osuApiHelper');
 const { Op } = require('@sequelize/core');
 const { getFullUsers } = require('../helpers/userHelper');
+const { OSU_SLUGS } = require('../helpers/osuHelper');
 
 const BEATMAP_CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
 const COMPACT_ATTRIBUTES = [
@@ -246,6 +247,78 @@ router.get('/set/:beatmapsetId', apicache('1 hour'), async (req, res) => {
         }
     } catch (error) {
         console.error('Error fetching beatmapset:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+const ALT_LIMIT = 1000;
+router.all('/:beatmapId/scores/{:ruleset}', apicache('1 hour'), async (req, res) => {
+    const { beatmapId, ruleset } = req.params;
+    //option mods in body
+    const { mods } = req.body || {};
+
+    if (!beatmapId) {
+        return res.status(400).json({ error: 'Beatmap ID parameter is required' });
+    }
+
+    try {
+        //validate ruleset if provided, if invalid, then unused (osu api will use default for given beatmap)
+        let _ruleset = null;
+        if(ruleset) {
+            const slugLower = ruleset.toLowerCase();
+            if(slugLower === 'total' || !OSU_SLUGS.hasOwnProperty(slugLower)) {
+                _ruleset = null;
+            }
+        }
+
+        const scores = await GetBeatmapScores(beatmapId, _ruleset, mods);
+        let osu_api_scores = scores?.scores || [];
+        let osu_alt_scores = [];
+
+        let foundRulesetId = osu_api_scores.length > 0 ? osu_api_scores[0].ruleset_id : null;
+        console.log('Found ruleset ID from API scores:', foundRulesetId);
+        if(foundRulesetId !== null && !isNaN(foundRulesetId)) {
+            const existingIds = new Set(osu_api_scores.map(s => s.id));
+            const altScores = await AltScoreLive.findAll({
+                where: {
+                    beatmap_id: beatmapId,
+                    ruleset_id: foundRulesetId,
+                    id: { [Op.notIn]: Array.from(existingIds) },
+                },
+                order: [['classic_total_score', 'DESC']],
+                limit: ALT_LIMIT,
+            });
+            console.log(`Fetched ${altScores.length} alternative scores from database for beatmap ${beatmapId} and ruleset ${foundRulesetId}`);
+            osu_alt_scores = JSON.parse(JSON.stringify(altScores)); //convert to plain objects
+        }
+
+        if(osu_api_scores.length > 0 || osu_alt_scores.length > 0) {
+            //get all user ids
+            const userIds = new Set();
+            osu_api_scores.forEach(s => userIds.add(s.user_id));
+            osu_alt_scores.forEach(s => userIds.add(s.user_id_fk));
+
+            const users = await getFullUsers(Array.from(userIds), true);
+            const userMap = {};
+            users.forEach(user => {
+                if (!user || !user.osuApi) return;
+                userMap[user.osuApi?.id] = user;
+            });
+
+            osu_api_scores.forEach(s => s.user = userMap[s.user_id] || null);
+            osu_alt_scores.forEach(s => s.user = userMap[s.user_id_fk] || null);
+        }
+
+        if (scores) {
+            return res.status(200).json({
+                api: osu_api_scores,
+                alt: osu_alt_scores
+            });
+        } else {
+            return res.status(404).json({ error: 'Scores not found' });
+        }
+    }catch (error) {
+        console.error('Error fetching beatmap scores:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
 });
