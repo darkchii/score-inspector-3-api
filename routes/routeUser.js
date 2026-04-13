@@ -47,6 +47,7 @@ router.get('/search/:query', async (req, res) => {
 
 router.get('/:userId/profile', apicache('1 hour'), async (req, res) => {
     const { userId } = req.params;
+    const { requireAlt } = req.query;
     if (!userId) {
         return res.status(400).json({ error: 'User ID parameter is required' });
     }
@@ -60,7 +61,7 @@ router.get('/:userId/profile', apicache('1 hour'), async (req, res) => {
         //check connection
         const userLive = await AltUserLive.findOne({ where: { user_id: userId } });
 
-        if (!userLive) {
+        if (!userLive && requireAlt === 'true') {
             return res.status(404).json({ error: 'User not found in osu!alternative' });
         }
 
