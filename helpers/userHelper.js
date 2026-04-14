@@ -36,15 +36,12 @@ async function getFullUsers(userIds, filterRestricted = false) {
     const users = {};
     const missingUserIds = [];
 
-    console.log(`Fetching full user data for user IDs: ${requestedUserIds.join(", ")}`);
     for (const userId of requestedUserIds) {
         const cachedUser = getCachedFullUser(userId);
         if (cachedUser) {
             users[userId] = cachedUser;
-            console.log(`Cache hit for user ID ${userId}`);
         } else {
             missingUserIds.push(userId);
-            console.log(`Cache miss for user ID ${userId}`);
         }
     }
 
