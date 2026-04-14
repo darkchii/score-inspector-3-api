@@ -113,11 +113,22 @@ function normalizeComparableText(value) {
 
     return value
         .toLowerCase()
+        // Expand German umlauts and sharp-s BEFORE NFD so the Unicode forms and
+        // the already-expanded ASCII forms (e.g. ü→u vs ü→ue) both reach the
+        // same canonical token (susser == suesser).
+        .replace(/ß/g, 'ss')
+        .replace(/ü/g, 'ue')
+        .replace(/ö/g, 'oe')
+        .replace(/ä/g, 'ae')
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .replace(/[\[\](){}]/g, ' ')
         .replace(/\b(feat\.?|featuring|ft\.?)\b/g, ' ')
         .replace(/[^a-z0-9]+/g, ' ')
+        // Collapse the digraph forms so both encode to the same root letter.
+        .replace(/ue/g, 'u')
+        .replace(/oe/g, 'o')
+        .replace(/ae/g, 'a')
         .replace(/\s+/g, ' ')
         .trim();
 }
