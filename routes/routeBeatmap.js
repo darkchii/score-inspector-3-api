@@ -144,6 +144,23 @@ function tokenizeComparableText(value) {
         .filter((token) => token.length > 0 && !TITLE_STOP_WORDS.has(token));
 }
 
+function stripTitleVersioning(value) {
+    if (typeof value !== 'string') {
+        return '';
+    }
+
+    let result = value;
+
+    // Remove parenthesized/bracketed explicit version markers from source title.
+    result = result.replace(/\((?:[^)]*\b(?:tv\s*size|cut\s*ver(?:sion)?\.?|short\s*ver(?:sion)?\.?|full\s*ver(?:sion)?\.?|game\s*ver(?:sion)?\.?|anime\s*ver(?:sion)?\.?|director'?s?\s*(?:edit|cut)|nightcore|sped\s*up|slowed(?:\s*down)?|remaster(?:ed)?)\b[^)]*)\)/gi, ' ');
+    result = result.replace(/\[(?:[^\]]*\b(?:tv\s*size|cut\s*ver(?:sion)?\.?|short\s*ver(?:sion)?\.?|full\s*ver(?:sion)?\.?|game\s*ver(?:sion)?\.?|anime\s*ver(?:sion)?\.?|director'?s?\s*(?:edit|cut)|nightcore|sped\s*up|slowed(?:\s*down)?|remaster(?:ed)?)\b[^\]]*)\]/gi, ' ');
+
+    // Remove trailing "- Game Ver." style suffixes.
+    result = result.replace(/\s*[-–:]\s*(?:tv\s*size|cut\s*ver(?:sion)?\.?|short\s*ver(?:sion)?\.?|full\s*ver(?:sion)?\.?|game\s*ver(?:sion)?\.?|anime\s*ver(?:sion)?\.?|director'?s?\s*(?:edit|cut)|nightcore|sped\s*up|slowed(?:\s*down)?|remaster(?:ed)?)\s*$/i, ' ');
+
+    return result.replace(/\s+/g, ' ').trim();
+}
+
 function getOverlapCount(leftTokens, rightTokens) {
     const rightSet = new Set(rightTokens);
     let overlap = 0;
@@ -570,15 +587,18 @@ router.post('/media/recommendations/by-artist-title', async (req, res) => {
     const similarSetLimit = Math.min(Math.max(toInteger(similar_set_limit, 100), 10), 400);
     const currentBeatmapsetId = toInteger(beatmapset_id, null);
 
+    const strippedSourceTitle = stripTitleVersioning(title);
+    const comparisonTitle = strippedSourceTitle || title;
+
     const normalizedArtist = normalizeComparableText(artist);
-    const normalizedTitle = normalizeComparableText(title);
+    const normalizedTitle = normalizeComparableText(comparisonTitle);
     if (!normalizedArtist || !normalizedTitle) {
         return res.status(400).json({ error: 'Artist and title are required' });
     }
 
     try {
         const beatmapRows = await AltBeatmapLive.findAll({
-            attributes: ['beatmapset_id', 'artist', 'title', 'mapper', 'mapper_id'],
+            attributes: ['beatmapset_id', 'artist', 'title', 'source', 'mapper', 'mapper_id'],
             raw: true,
         });
 
@@ -594,14 +614,19 @@ router.post('/media/recommendations/by-artist-title', async (req, res) => {
                     beatmapset_id: row.beatmapset_id,
                     artist: row.artist || '',
                     title: row.title || '',
+                    source: row.source || '',
                     mapper: row.mapper || null,
                     mapper_id: mapperId,
                 });
             }
         });
 
-        const sourceTitleTokens = tokenizeComparableText(title);
+        const sourceTitleTokens = tokenizeComparableText(comparisonTitle);
         const sourceCanonicalTitle = sourceTitleTokens.join(' ');
+        const sourceRow = currentBeatmapsetId !== null ? beatmapsetMap.get(currentBeatmapsetId) : null;
+        const sourceSourceText = sourceRow?.source || '';
+        const sourceSourceTokens = tokenizeComparableText(sourceSourceText);
+        const sourceCanonicalSource = sourceSourceTokens.join(' ');
 
         const similarBeatmapsets = [];
         beatmapsetMap.forEach((row) => {
@@ -620,23 +645,44 @@ router.post('/media/recommendations/by-artist-title', async (req, res) => {
                 && sourceCanonicalTitle === candidateCanonicalTitle
             );
 
+            const candidateSourceTokens = tokenizeComparableText(row.source || '');
+            const sourceTokenOverlap = getOverlapCount(sourceSourceTokens, candidateSourceTokens);
+            const hasSourceStemBigram = hasSharedTokenBigram(sourceSourceTokens, candidateSourceTokens);
+            const hasStrongSourceTokenOverlap = hasStrongTokenOverlap(sourceSourceTokens, candidateSourceTokens);
+            const candidateCanonicalSource = candidateSourceTokens.join(' ');
+            const hasCanonicalSourceMatch = (
+                sourceCanonicalSource.length > 0
+                && candidateCanonicalSource.length > 0
+                && sourceCanonicalSource === candidateCanonicalSource
+            );
+
             // Avoid broad partial matches like "Goodbye" matching "Goodbye Friend".
             // Keep matches only when canonical titles match, a core bigram matches,
             // or there are at least two overlapping tokens including one strong token.
             const hasQualifiedTokenOverlap = titleTokenOverlap >= 2 && hasStrongTitleTokenOverlap;
-            if (!hasCanonicalTitleMatch && !hasTitleStemBigram && !hasQualifiedTokenOverlap) {
+            const hasQualifiedSourceOverlap = sourceTokenOverlap >= 2 && hasStrongSourceTokenOverlap;
+            const hasTitleSignal = hasCanonicalTitleMatch || hasTitleStemBigram || hasQualifiedTokenOverlap;
+            const hasSourceSignal = hasCanonicalSourceMatch || hasSourceStemBigram || hasQualifiedSourceOverlap;
+
+            if (!hasTitleSignal && !hasSourceSignal) {
                 return;
             }
 
             const artistSimilarity = getTextSimilarity(artist, row.artist);
-            const titleSimilarity = getTextSimilarity(title, row.title);
-            const combinedScore = (artistSimilarity * 0.45) + (titleSimilarity * 0.55);
+            const titleSimilarity = getTextSimilarity(comparisonTitle, row.title);
+            const sourceSimilarity = getTextSimilarity(sourceSourceText, row.source || '');
+
+            const hasUsableSource = normalizeComparableText(sourceSourceText).length > 0 && normalizeComparableText(row.source || '').length > 0;
+            const combinedScore = hasUsableSource
+                ? (artistSimilarity * 0.4) + (titleSimilarity * 0.45) + (sourceSimilarity * 0.15)
+                : (artistSimilarity * 0.45) + (titleSimilarity * 0.55);
 
             // Same song / same artist variants (TV Size, Cut Ver, etc.)
             const isSameArtistVariant = (
                 (artistSimilarity >= 0.95 && titleSimilarity >= 0.75)
                 || (artistSimilarity >= 0.75 && titleSimilarity >= 0.92)
                 || (artistSimilarity >= 0.7 && titleSimilarity >= 0.7 && combinedScore >= 0.78)
+                || (artistSimilarity >= 0.65 && titleSimilarity >= 0.65 && sourceSimilarity >= 0.7 && combinedScore >= 0.74)
             );
 
             // Cover: allow either very high title similarity OR a shared core title stem (bigram).
@@ -649,10 +695,8 @@ router.post('/media/recommendations/by-artist-title', async (req, res) => {
                 return;
             }
 
-            // For covers weight the score toward title similarity
-            const displayScore = isCover
-                ? titleSimilarity * 0.8
-                : combinedScore;
+            // For covers weight toward title similarity.
+            const displayScore = isCover ? (titleSimilarity * 0.8) : combinedScore;
 
             similarBeatmapsets.push({
                 beatmapset_id: row.beatmapset_id,
@@ -662,6 +706,7 @@ router.post('/media/recommendations/by-artist-title', async (req, res) => {
                 mapper_id: row.mapper_id,
                 artist_similarity: artistSimilarity,
                 title_similarity: titleSimilarity,
+                source_similarity: sourceSimilarity,
                 similarity_score: displayScore,
                 is_cover: isCover,
             });
@@ -693,6 +738,8 @@ router.post('/media/recommendations/by-artist-title', async (req, res) => {
                     beatmapset_id: currentBeatmapsetId,
                     artist,
                     title,
+                    sanitized_title: strippedSourceTitle,
+                    matching_title: comparisonTitle,
                 },
                 matched_beatmapsets: 0,
                 matched_media_rows: 0,
@@ -747,6 +794,8 @@ router.post('/media/recommendations/by-artist-title', async (req, res) => {
                 beatmapset_id: currentBeatmapsetId,
                 artist,
                 title,
+                sanitized_title: strippedSourceTitle,
+                matching_title: comparisonTitle,
             },
             matched_beatmapsets: similarBeatmapsetIds.length,
             matched_media_rows: mediaRows.length,
