@@ -2,6 +2,11 @@ const YOUTUBE_ID_REGEX = /^[a-zA-Z0-9_-]{11}$/;
 const SPOTIFY_PATH_REGEX = /^(track|album|playlist|episode|show)\/([a-zA-Z0-9]{22})$/;
 const SPOTIFY_URI_REGEX = /^spotify:(track|album|playlist|episode|show):([a-zA-Z0-9]{22})$/;
 
+const MEDIA_FIELD_DEFINITIONS = [
+    { key: 'youtube', label: 'YouTube', column: 'youtube_id', normalize: extractYoutubeId },
+    { key: 'spotify', label: 'Spotify', column: 'spotify_id', normalize: extractSpotifyPath },
+];
+
 function normalizeInput(input) {
     if (typeof input !== 'string') {
         return null;
@@ -96,7 +101,23 @@ function extractSpotifyPath(input) {
     return SPOTIFY_PATH_REGEX.test(normalized) ? normalized : null;
 }
 
+function getMediaFieldDefinition(key) {
+    return MEDIA_FIELD_DEFINITIONS.find((field) => field.key === key) || null;
+}
+
+function normalizeMediaValueByKey(key, input) {
+    const field = getMediaFieldDefinition(key);
+    if (!field) {
+        return null;
+    }
+
+    return field.normalize(input);
+}
+
 module.exports = {
+    MEDIA_FIELD_DEFINITIONS,
+    getMediaFieldDefinition,
+    normalizeMediaValueByKey,
     extractYoutubeId,
     extractSpotifyPath,
 };

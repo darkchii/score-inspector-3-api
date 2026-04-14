@@ -9,7 +9,7 @@ const { GetTags, GetBeatmap, GetBeatmapset, GetBeatmapScores, GetOwnData } = req
 const { Op } = require('@sequelize/core');
 const { getFullUsers } = require('../helpers/userHelper');
 const { OSU_SLUGS } = require('../helpers/osuHelper');
-const { extractYoutubeId, extractSpotifyPath } = require('../helpers/mediaHelper');
+const { MEDIA_FIELD_DEFINITIONS, extractYoutubeId, extractSpotifyPath, getMediaFieldDefinition, normalizeMediaValueByKey } = require('../helpers/mediaHelper');
 
 const BEATMAP_CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
 const COMPACT_ATTRIBUTES = [
@@ -82,6 +82,140 @@ const BEATMAP_CACHE = {
     full: { data: null, updatedAt: null, refreshPromise: null },
     compact: { data: null, updatedAt: null, refreshPromise: null },
 };
+
+const TITLE_STOP_WORDS = new Set([
+    'the',
+    'a',
+    'an',
+    'and',
+    'feat',
+    'featuring',
+    'ft',
+    'ver',
+    'version',
+    'tv',
+    'size',
+    'cut',
+    'mix',
+    'edit',
+    'remaster',
+]);
+
+function toInteger(value, fallbackValue) {
+    const parsed = parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : fallbackValue;
+}
+
+function normalizeComparableText(value) {
+    if (typeof value !== 'string') {
+        return '';
+    }
+
+    return value
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[\[\](){}]/g, ' ')
+        .replace(/\b(feat\.?|featuring|ft\.?)\b/g, ' ')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function tokenizeComparableText(value) {
+    const normalized = normalizeComparableText(value);
+    if (!normalized) {
+        return [];
+    }
+
+    return normalized
+        .split(' ')
+        .filter((token) => token.length > 0 && !TITLE_STOP_WORDS.has(token));
+}
+
+function getOverlapCount(leftTokens, rightTokens) {
+    const rightSet = new Set(rightTokens);
+    let overlap = 0;
+    leftTokens.forEach((token) => {
+        if (rightSet.has(token)) {
+            overlap += 1;
+        }
+    });
+
+    return overlap;
+}
+
+function getTextSimilarity(leftValue, rightValue) {
+    const leftNormalized = normalizeComparableText(leftValue);
+    const rightNormalized = normalizeComparableText(rightValue);
+    if (!leftNormalized || !rightNormalized) {
+        return 0;
+    }
+
+    if (leftNormalized === rightNormalized) {
+        return 1;
+    }
+
+    const leftTokens = tokenizeComparableText(leftValue);
+    const rightTokens = tokenizeComparableText(rightValue);
+    if (leftTokens.length === 0 || rightTokens.length === 0) {
+        return 0;
+    }
+
+    const overlap = getOverlapCount(leftTokens, rightTokens);
+    if (overlap === 0) {
+        return 0;
+    }
+
+    const unionSize = new Set([...leftTokens, ...rightTokens]).size;
+    const jaccard = unionSize > 0 ? overlap / unionSize : 0;
+    const containment = overlap / Math.min(leftTokens.length, rightTokens.length);
+
+    return Math.max(jaccard, containment * 0.95);
+}
+
+function buildRecommendationFieldsFromRows(rows, recommendationLimit, sourceKey = null) {
+    return MEDIA_FIELD_DEFINITIONS
+        .filter((field) => field.key !== sourceKey)
+        .map((field) => {
+            const recommendations = new Map();
+
+            rows.forEach((row) => {
+                const rawValue = row[field.column];
+                const normalizedValue = typeof rawValue === 'string' ? rawValue.trim() : rawValue;
+                if (!normalizedValue) {
+                    return;
+                }
+
+                const existing = recommendations.get(normalizedValue) || {
+                    value: normalizedValue,
+                    match_count: 0,
+                    beatmapset_ids: [],
+                };
+
+                existing.match_count += 1;
+                if (!existing.beatmapset_ids.includes(row.beatmapset_id)) {
+                    existing.beatmapset_ids.push(row.beatmapset_id);
+                }
+
+                recommendations.set(normalizedValue, existing);
+            });
+
+            return {
+                key: field.key,
+                label: field.label,
+                recommendations: Array.from(recommendations.values())
+                    .sort((left, right) => {
+                        if (right.match_count !== left.match_count) {
+                            return right.match_count - left.match_count;
+                        }
+
+                        return left.value.localeCompare(right.value);
+                    })
+                    .slice(0, recommendationLimit),
+            };
+        });
+}
 
 async function hasEditorAccess(userId) {
     const userRoles = await InspectorUserRole.findAll({
@@ -337,6 +471,169 @@ router.post('/set/:beatmapsetId/media', async (req, res) => {
         });
     } catch (error) {
         console.error('Error updating beatmap media:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.post('/media/recommendations', async (req, res) => {
+    const { source_type, source_value, limit } = req.body || {};
+    const sourceField = getMediaFieldDefinition(source_type);
+
+    if (!sourceField) {
+        return res.status(400).json({ error: 'Invalid media source type' });
+    }
+
+    const normalizedSourceValue = normalizeMediaValueByKey(source_type, source_value);
+    if (!normalizedSourceValue) {
+        return res.status(400).json({ error: `Invalid ${sourceField.label} value` });
+    }
+
+    const recommendationLimit = Math.min(Math.max(toInteger(limit, 5), 1), 20);
+
+    try {
+        const matchingRows = await InspectorBeatmapMedia.findAll({
+            where: {
+                [sourceField.column]: normalizedSourceValue,
+            },
+            attributes: ['beatmapset_id', ...MEDIA_FIELD_DEFINITIONS.map((field) => field.column)],
+            raw: true,
+            limit: 500,
+        });
+
+        const recommendationFields = buildRecommendationFieldsFromRows(matchingRows, recommendationLimit, sourceField.key);
+
+        return res.status(200).json({
+            source_field: {
+                key: sourceField.key,
+                label: sourceField.label,
+                value: normalizedSourceValue,
+            },
+            matched_rows: matchingRows.length,
+            recommendation_fields: recommendationFields,
+        });
+    } catch (error) {
+        console.error('Error fetching beatmap media recommendations:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.post('/media/recommendations/by-artist-title', async (req, res) => {
+    const { beatmapset_id, artist, title, limit, similar_set_limit } = req.body || {};
+    const recommendationLimit = Math.min(Math.max(toInteger(limit, 5), 1), 20);
+    const similarSetLimit = Math.min(Math.max(toInteger(similar_set_limit, 100), 10), 400);
+    const currentBeatmapsetId = toInteger(beatmapset_id, null);
+
+    const normalizedArtist = normalizeComparableText(artist);
+    const normalizedTitle = normalizeComparableText(title);
+    if (!normalizedArtist || !normalizedTitle) {
+        return res.status(400).json({ error: 'Artist and title are required' });
+    }
+
+    try {
+        const beatmapRows = await AltBeatmapLive.findAll({
+            attributes: ['beatmapset_id', 'artist', 'title'],
+            raw: true,
+        });
+
+        const beatmapsetMap = new Map();
+        beatmapRows.forEach((row) => {
+            if (!row?.beatmapset_id) {
+                return;
+            }
+
+            if (!beatmapsetMap.has(row.beatmapset_id)) {
+                beatmapsetMap.set(row.beatmapset_id, {
+                    beatmapset_id: row.beatmapset_id,
+                    artist: row.artist || '',
+                    title: row.title || '',
+                });
+            }
+        });
+
+        const similarBeatmapsets = [];
+        beatmapsetMap.forEach((row) => {
+            if (currentBeatmapsetId !== null && row.beatmapset_id === currentBeatmapsetId) {
+                return;
+            }
+
+            const artistSimilarity = getTextSimilarity(artist, row.artist);
+            const titleSimilarity = getTextSimilarity(title, row.title);
+            const combinedScore = (artistSimilarity * 0.45) + (titleSimilarity * 0.55);
+
+            const isLikelySameMeaning = (
+                (artistSimilarity >= 0.95 && titleSimilarity >= 0.75)
+                || (artistSimilarity >= 0.75 && titleSimilarity >= 0.92)
+                || (artistSimilarity >= 0.7 && titleSimilarity >= 0.7 && combinedScore >= 0.78)
+            );
+
+            if (!isLikelySameMeaning) {
+                return;
+            }
+
+            similarBeatmapsets.push({
+                beatmapset_id: row.beatmapset_id,
+                artist: row.artist,
+                title: row.title,
+                artist_similarity: artistSimilarity,
+                title_similarity: titleSimilarity,
+                similarity_score: combinedScore,
+            });
+        });
+
+        similarBeatmapsets.sort((left, right) => {
+            if (right.similarity_score !== left.similarity_score) {
+                return right.similarity_score - left.similarity_score;
+            }
+
+            if (right.title_similarity !== left.title_similarity) {
+                return right.title_similarity - left.title_similarity;
+            }
+
+            return (left.beatmapset_id || 0) - (right.beatmapset_id || 0);
+        });
+
+        const limitedSimilarBeatmapsets = similarBeatmapsets.slice(0, similarSetLimit);
+        const similarBeatmapsetIds = limitedSimilarBeatmapsets.map((row) => row.beatmapset_id);
+
+        if (similarBeatmapsetIds.length === 0) {
+            return res.status(200).json({
+                source: {
+                    beatmapset_id: currentBeatmapsetId,
+                    artist,
+                    title,
+                },
+                matched_beatmapsets: 0,
+                matched_media_rows: 0,
+                recommendation_fields: buildRecommendationFieldsFromRows([], recommendationLimit),
+                similar_beatmapsets: [],
+            });
+        }
+
+        const mediaRows = await InspectorBeatmapMedia.findAll({
+            where: {
+                beatmapset_id: {
+                    [Op.in]: similarBeatmapsetIds,
+                },
+            },
+            attributes: ['beatmapset_id', ...MEDIA_FIELD_DEFINITIONS.map((field) => field.column)],
+            raw: true,
+        });
+
+        const recommendationFields = buildRecommendationFieldsFromRows(mediaRows, recommendationLimit);
+
+        return res.status(200).json({
+            source: {
+                beatmapset_id: currentBeatmapsetId,
+                artist,
+                title,
+            },
+            matched_beatmapsets: similarBeatmapsetIds.length,
+            matched_media_rows: mediaRows.length,
+            recommendation_fields: recommendationFields,
+            similar_beatmapsets: limitedSimilarBeatmapsets.slice(0, 20),
+        });
+    } catch (error) {
+        console.error('Error fetching beatmap media recommendations by artist/title:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
 });
