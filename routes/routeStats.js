@@ -4,7 +4,7 @@ const { getFullUsers } = require('../helpers/userHelper');
 const { OSU_SLUGS } = require('../helpers/osuHelper');
 const router = express.Router();
 
-const top_day_periods = ['today', 'yesterday', 'year', 'last_year'];
+const top_day_periods = ['today', 'yesterday', 'this_month', 'last_month', 'year', 'last_year'];
 router.get('/top-day/:ruleset', async (req, res) => {
     const { ruleset } = req.params;
     let _ruleset = ruleset;
