@@ -156,6 +156,42 @@ function getOverlapCount(leftTokens, rightTokens) {
     return overlap;
 }
 
+function hasStrongTokenOverlap(leftTokens, rightTokens, minLength = 4) {
+    if (!Array.isArray(leftTokens) || !Array.isArray(rightTokens)) {
+        return false;
+    }
+
+    if (leftTokens.length === 0 || rightTokens.length === 0) {
+        return false;
+    }
+
+    const rightSet = new Set(rightTokens);
+    return leftTokens.some((token) => token.length >= minLength && rightSet.has(token));
+}
+
+function hasSharedTokenBigram(leftTokens, rightTokens) {
+    if (!Array.isArray(leftTokens) || !Array.isArray(rightTokens)) {
+        return false;
+    }
+
+    if (leftTokens.length < 2 || rightTokens.length < 2) {
+        return false;
+    }
+
+    const rightBigrams = new Set();
+    for (let i = 0; i < rightTokens.length - 1; i += 1) {
+        rightBigrams.add(`${rightTokens[i]} ${rightTokens[i + 1]}`);
+    }
+
+    for (let i = 0; i < leftTokens.length - 1; i += 1) {
+        if (rightBigrams.has(`${leftTokens[i]} ${leftTokens[i + 1]}`)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function getTextSimilarity(leftValue, rightValue) {
     const leftNormalized = normalizeComparableText(leftValue);
     const rightNormalized = normalizeComparableText(rightValue);
@@ -564,9 +600,31 @@ router.post('/media/recommendations/by-artist-title', async (req, res) => {
             }
         });
 
+        const sourceTitleTokens = tokenizeComparableText(title);
+        const sourceCanonicalTitle = sourceTitleTokens.join(' ');
+
         const similarBeatmapsets = [];
         beatmapsetMap.forEach((row) => {
             if (currentBeatmapsetId !== null && row.beatmapset_id === currentBeatmapsetId) {
+                return;
+            }
+
+            const candidateTitleTokens = tokenizeComparableText(row.title);
+            const titleTokenOverlap = getOverlapCount(sourceTitleTokens, candidateTitleTokens);
+            const hasTitleStemBigram = hasSharedTokenBigram(sourceTitleTokens, candidateTitleTokens);
+            const hasStrongTitleTokenOverlap = hasStrongTokenOverlap(sourceTitleTokens, candidateTitleTokens);
+            const candidateCanonicalTitle = candidateTitleTokens.join(' ');
+            const hasCanonicalTitleMatch = (
+                sourceCanonicalTitle.length > 0
+                && candidateCanonicalTitle.length > 0
+                && sourceCanonicalTitle === candidateCanonicalTitle
+            );
+
+            // Avoid broad partial matches like "Goodbye" matching "Goodbye Friend".
+            // Keep matches only when canonical titles match, a core bigram matches,
+            // or there are at least two overlapping tokens including one strong token.
+            const hasQualifiedTokenOverlap = titleTokenOverlap >= 2 && hasStrongTitleTokenOverlap;
+            if (!hasCanonicalTitleMatch && !hasTitleStemBigram && !hasQualifiedTokenOverlap) {
                 return;
             }
 
@@ -581,8 +639,11 @@ router.post('/media/recommendations/by-artist-title', async (req, res) => {
                 || (artistSimilarity >= 0.7 && titleSimilarity >= 0.7 && combinedScore >= 0.78)
             );
 
-            // Cover: title is a very strong match regardless of who the artist is
-            const isCover = titleSimilarity >= 0.88 && artistSimilarity < 0.7;
+            // Cover: allow either very high title similarity OR a shared core title stem (bigram).
+            const isCover = artistSimilarity < 0.7 && (
+                titleSimilarity >= 0.88
+                || hasTitleStemBigram
+            );
 
             if (!isSameArtistVariant && !isCover) {
                 return;
