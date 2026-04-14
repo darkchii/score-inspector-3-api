@@ -560,15 +560,24 @@ router.post('/media/recommendations/by-artist-title', async (req, res) => {
             const titleSimilarity = getTextSimilarity(title, row.title);
             const combinedScore = (artistSimilarity * 0.45) + (titleSimilarity * 0.55);
 
-            const isLikelySameMeaning = (
+            // Same song / same artist variants (TV Size, Cut Ver, etc.)
+            const isSameArtistVariant = (
                 (artistSimilarity >= 0.95 && titleSimilarity >= 0.75)
                 || (artistSimilarity >= 0.75 && titleSimilarity >= 0.92)
                 || (artistSimilarity >= 0.7 && titleSimilarity >= 0.7 && combinedScore >= 0.78)
             );
 
-            if (!isLikelySameMeaning) {
+            // Cover: title is a very strong match regardless of who the artist is
+            const isCover = titleSimilarity >= 0.88 && artistSimilarity < 0.7;
+
+            if (!isSameArtistVariant && !isCover) {
                 return;
             }
+
+            // For covers weight the score toward title similarity
+            const displayScore = isCover
+                ? titleSimilarity * 0.8
+                : combinedScore;
 
             similarBeatmapsets.push({
                 beatmapset_id: row.beatmapset_id,
@@ -576,11 +585,17 @@ router.post('/media/recommendations/by-artist-title', async (req, res) => {
                 title: row.title,
                 artist_similarity: artistSimilarity,
                 title_similarity: titleSimilarity,
-                similarity_score: combinedScore,
+                similarity_score: displayScore,
+                is_cover: isCover,
             });
         });
 
         similarBeatmapsets.sort((left, right) => {
+            // Same-artist variants rank above covers when similarity is equal
+            if (left.is_cover !== right.is_cover) {
+                return left.is_cover ? 1 : -1;
+            }
+
             if (right.similarity_score !== left.similarity_score) {
                 return right.similarity_score - left.similarity_score;
             }
