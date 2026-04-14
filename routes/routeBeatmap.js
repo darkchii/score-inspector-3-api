@@ -542,7 +542,7 @@ router.post('/media/recommendations/by-artist-title', async (req, res) => {
 
     try {
         const beatmapRows = await AltBeatmapLive.findAll({
-            attributes: ['beatmapset_id', 'artist', 'title'],
+            attributes: ['beatmapset_id', 'artist', 'title', 'mapper', 'mapper_id'],
             raw: true,
         });
 
@@ -553,10 +553,13 @@ router.post('/media/recommendations/by-artist-title', async (req, res) => {
             }
 
             if (!beatmapsetMap.has(row.beatmapset_id)) {
+                const mapperId = toInteger(row.mapper_id, null);
                 beatmapsetMap.set(row.beatmapset_id, {
                     beatmapset_id: row.beatmapset_id,
                     artist: row.artist || '',
                     title: row.title || '',
+                    mapper: row.mapper || null,
+                    mapper_id: mapperId,
                 });
             }
         });
@@ -594,6 +597,8 @@ router.post('/media/recommendations/by-artist-title', async (req, res) => {
                 beatmapset_id: row.beatmapset_id,
                 artist: row.artist,
                 title: row.title,
+                mapper: row.mapper,
+                mapper_id: row.mapper_id,
                 artist_similarity: artistSimilarity,
                 title_similarity: titleSimilarity,
                 similarity_score: displayScore,
@@ -647,6 +652,35 @@ router.post('/media/recommendations/by-artist-title', async (req, res) => {
 
         const recommendationFields = buildRecommendationFieldsFromRows(mediaRows, recommendationLimit);
 
+        const mapperIds = Array.from(new Set(
+            limitedSimilarBeatmapsets
+                .map((entry) => toInteger(entry.mapper_id, null))
+                .filter((id) => id !== null)
+        ));
+
+        let mapperLookup = {};
+        if (mapperIds.length > 0) {
+            console.log('Resolving mapper users for similar beatmapsets:', mapperIds);
+            try {
+                const mapperUsers = await getFullUsers(mapperIds, true);
+                mapperLookup = mapperUsers.reduce((acc, userEntry) => {
+                    if (!userEntry?.osuApi?.id) {
+                        return acc;
+                    }
+
+                    acc[userEntry.osuApi.id] = userEntry;
+                    return acc;
+                }, {});
+            } catch (mapperError) {
+                console.error('Failed to resolve mapper users for similar beatmapsets:', mapperError);
+            }
+        }
+
+        const similarBeatmapsetsWithMapper = limitedSimilarBeatmapsets.slice(0, 20).map((entry) => ({
+            ...entry,
+            mapper_user: entry.mapper_id ? (mapperLookup[entry.mapper_id] || null) : null,
+        }));
+
         return res.status(200).json({
             source: {
                 beatmapset_id: currentBeatmapsetId,
@@ -656,7 +690,7 @@ router.post('/media/recommendations/by-artist-title', async (req, res) => {
             matched_beatmapsets: similarBeatmapsetIds.length,
             matched_media_rows: mediaRows.length,
             recommendation_fields: recommendationFields,
-            similar_beatmapsets: limitedSimilarBeatmapsets.slice(0, 20),
+            similar_beatmapsets: similarBeatmapsetsWithMapper,
         });
     } catch (error) {
         console.error('Error fetching beatmap media recommendations by artist/title:', error);
