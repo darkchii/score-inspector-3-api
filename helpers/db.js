@@ -16,6 +16,7 @@ const InspectorNotificationModel = require('../models/InspectorNotificationModel
 const { InspectorScoreRankModel } = require('../models/InspectorScoreRankModel');
 const InspectorPlayerVisitorModel = require('../models/InspectorPlayerVisitorModel');
 const InspectorBeatmapMediaModel = require('../models/InspectorBeatmapMediaModel');
+const { TeamModel } = require('../models/TeamModel');
 require('dotenv').config();
 
 let databases = {
@@ -96,6 +97,8 @@ const InspectorManiaScoreRank = InspectorScoreRankModel(databases.inspector, 'sc
 
 const InspectorBeatmapMedia = InspectorBeatmapMediaModel(databases.inspector);
 
+const InspectorTeam = TeamModel(databases.inspector);
+
 InspectorUserRole.hasOne(InspectorRole, { foreignKey: 'id', sourceKey: 'role_id' });
 
 AltUserLive.hasMany(AltScoreLive, { foreignKey: 'user_id_fk', sourceKey: 'user_id' });
@@ -126,6 +129,8 @@ module.exports.InspectorCatchScoreRank = InspectorCatchScoreRank;
 module.exports.InspectorManiaScoreRank = InspectorManiaScoreRank;
 
 module.exports.InspectorBeatmapMedia = InspectorBeatmapMedia;
+
+module.exports.InspectorTeam = InspectorTeam;
 
 function getScoreRankModelByRuleset(ruleset) {
     switch (ruleset) {

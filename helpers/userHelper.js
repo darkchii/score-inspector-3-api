@@ -1,4 +1,4 @@
-const { AltUserLive, AltRegistration, InspectorUserRole, InspectorRole, InspectorPlayerReputation } = require("./db");
+const { AltUserLive, AltRegistration, InspectorUserRole, InspectorRole, InspectorPlayerReputation, InspectorTeam } = require("./db");
 const { GetUsers, GetUserData } = require("./osuApiHelper");
 
 const FULL_USERS_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -27,7 +27,7 @@ function setCachedFullUser(userId, userData) {
     });
 }
 
-async function getFullUsers(userIds, filterRestricted = false) {
+async function getFullUsers(userIds, filterRestricted = false, existingApiUsers = []) {
     if (!Array.isArray(userIds) || userIds.length === 0) {
         return [];
     }
@@ -51,10 +51,21 @@ async function getFullUsers(userIds, filterRestricted = false) {
 
             // Fetch osu! api data
             let osuApiUsers = [];
-            if (missingUserIds.length > 1) {
-                osuApiUsers = await GetUsers(missingUserIds);
-            } else {
-                osuApiUsers = [await GetUserData(missingUserIds[0])];
+            let osuApiIdCacheHits = []; //store IDs that were in the existingApiUsers cache
+            
+            for(const userId of missingUserIds) {
+                const existingApiUser = existingApiUsers.find(u => u.id === userId);
+                if (existingApiUser) {
+                    osuApiUsers.push(existingApiUser);
+                    osuApiIdCacheHits.push(userId);
+                }
+            }
+
+            let remainingUserIds = missingUserIds.filter(id => !osuApiIdCacheHits.includes(id));
+            if (remainingUserIds.length > 1) {
+                osuApiUsers = await GetUsers(remainingUserIds);
+            } else if (remainingUserIds.length === 1) {
+                osuApiUsers = [await GetUserData(remainingUserIds[0])];
             }
 
             for (const osuApiUser of osuApiUsers) {
@@ -78,6 +89,32 @@ async function getFullUsers(userIds, filterRestricted = false) {
             for (const osuAltUser of osuAltUsers) {
                 if (fetchedUsers[osuAltUser.user_id]) {
                     fetchedUsers[osuAltUser.user_id].osuAlternative = osuAltUser;
+                }
+            }
+
+            // Fetch extra team data (osuUser.team?.id)
+            const teamIds = osuApiUsers
+                .filter(u => u.team && u.team.id)
+                .map(u => u.team.id);
+
+            const teamsData = await InspectorTeam.findAll({
+                where: {
+                    id: teamIds
+                }
+            });
+
+            // Merge team data into the user[].osuApi.team (not set it, merge it in, its extra data for the team)
+            const teamsDataMap = {};
+            teamsData.forEach(team => {
+                teamsDataMap[team.id] = team;
+            });
+
+            for (const osuApiUser of osuApiUsers) {
+                if (osuApiUser.team && osuApiUser.team.id && teamsDataMap[osuApiUser.team.id]) {
+                    osuApiUser.team = {
+                        ...osuApiUser.team,
+                        ...teamsDataMap[osuApiUser.team.id].get({ plain: true })
+                    }
                 }
             }
 
