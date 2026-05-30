@@ -198,14 +198,13 @@ router.get('/top-day/:ruleset', async (req, res) => {
 
 router.get('/global-stats', async (req, res) => {
     try {
-        //get: beatmap_counts, score_counts, user_counts, team_counts
+        //get: beatmap_counts, score_counts, user_counts
         const data = await InspectorStat.findAll({
             where: {
                 metric: [
                     'beatmap_counts',
                     'score_counts',
                     'user_counts',
-                    'team_counts',
                     'reputation_counts'
                 ]
             }

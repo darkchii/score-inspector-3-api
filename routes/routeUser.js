@@ -1,6 +1,6 @@
 const express = require('express');
 const { Search, GetUserData, GetUsers, CheckAuth } = require('../helpers/osuApiHelper');
-const { AltUserLive, CheckConnection, Databases, AltScoreLive, Team, AltRegistration, InspectorCompletionist, InspectorUserRole, InspectorRole, InspectorPlayerReputation } = require('../helpers/db');
+const { AltUserLive, CheckConnection, Databases, AltScoreLive, AltRegistration, InspectorCompletionist, InspectorUserRole, InspectorRole, InspectorPlayerReputation } = require('../helpers/db');
 const apicache = require('apicache-plus');
 const { default: Sequelize, Op, literal } = require('@sequelize/core');
 const { getFullUsers } = require('../helpers/userHelper');

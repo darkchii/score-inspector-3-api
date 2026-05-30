@@ -1,4 +1,4 @@
-const { AltUserLive, AltRegistration, Team, InspectorUserRole, InspectorRole, InspectorPlayerReputation } = require("./db");
+const { AltUserLive, AltRegistration, InspectorUserRole, InspectorRole, InspectorPlayerReputation } = require("./db");
 const { GetUsers, GetUserData } = require("./osuApiHelper");
 
 const FULL_USERS_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -65,7 +65,6 @@ async function getFullUsers(userIds, filterRestricted = false) {
                 fetchedUsers[osuApiUser.id] = {
                     osuAlternative: null,
                     osuApi: osuApiUser,
-                    team: null,
                     is_sync: false
                 };
             }
@@ -80,29 +79,6 @@ async function getFullUsers(userIds, filterRestricted = false) {
                 if (fetchedUsers[osuAltUser.user_id]) {
                     fetchedUsers[osuAltUser.user_id].osuAlternative = osuAltUser;
                 }
-            }
-
-            // Fetch teams
-            const teamIds = Object.values(fetchedUsers)
-                .filter(u => u.osuApi?.team)
-                .map(u => u.osuApi.team.id);
-            const teams = teamIds.length > 0
-                ? await Team.findAll({
-                    where: {
-                        id: teamIds,
-                        deleted: false
-                    }
-                })
-                : [];
-
-            const teamMap = {};
-            teams.forEach(t => {
-                teamMap[t.id] = t;
-            });
-
-            for (const userId of Object.keys(fetchedUsers)) {
-                const teamData = teamMap[fetchedUsers[userId].osuApi?.team?.id];
-                fetchedUsers[userId].team = teamData || null;
             }
 
             // Fetch roles
