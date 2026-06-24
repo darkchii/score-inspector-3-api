@@ -135,16 +135,20 @@ module.exports.InspectorTeam = InspectorTeam;
 function getScoreRankModelByRuleset(ruleset) {
     switch (ruleset) {
         case 0:
+        case '0':
         case 'osu':
             return InspectorOsuScoreRank;
         case 1:
+        case '1':
         case 'taiko':
             return InspectorTaikoScoreRank;
         case 2:
+        case '2':
         case 'fruits':
         case 'catch':
             return InspectorCatchScoreRank;
         case 3:
+        case '3':
         case 'mania':
             return InspectorManiaScoreRank;
         default:

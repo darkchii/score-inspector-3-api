@@ -14,7 +14,8 @@ const allowedOrigins = new Set([
   'http://localhost:5173',
   'http://127.0.0.1:3006',
   'http://127.0.0.1:5173',
-  'https://*.score-inspector-3-frontend.pages.dev'
+  'https://*.score-inspector-3-frontend.pages.dev',
+  'https://osu.ppy.sh'
 ]);
 
 app.use(cors({
@@ -27,6 +28,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: false,
+  contentType: 'application/json'
 }));
 
 app.use(express.json());
@@ -34,7 +36,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(compression({ level: 9 }));
 
 app.get('/', (req, res) => {
-    res.send('Nothing to see here. Watch Mushoku Tensei instead.');
+  res.send('Nothing to see here. Watch Mushoku Tensei instead.');
 });
 
 app.use('/ping', function (req, res, next) {
@@ -42,7 +44,7 @@ app.use('/ping', function (req, res, next) {
 });
 
 app.listen(port, () => {
-    console.log(`Example app listening on port ${port}`);
+  console.log(`Example app listening on port ${port}`);
 });
 
 ApplyRoutes(app);
