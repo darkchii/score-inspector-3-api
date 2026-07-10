@@ -64,9 +64,6 @@ const AltScoreLiveModel = (db) => db.define('ScoreLive', {
     difficulty_reducing: { type: DataTypes.BOOLEAN },
     difficulty_removing: { type: DataTypes.BOOLEAN },
     lchg_time: { type: DataTypes.DATE },
-    attr_diff: { type: DataTypes.JSON },
-    attr_date: { type: DataTypes.DATE },
-    attr_recalc: { type: DataTypes.BOOLEAN },
     is_ss: { type: DataTypes.BOOLEAN },
     is_fc: { type: DataTypes.BOOLEAN }
 }, {

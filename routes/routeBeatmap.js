@@ -1,5 +1,5 @@
 const express = require('express');
-const { AltBeatmapLive, InspectorBeatmapMedia, AltScoreLive, InspectorUserRole, InspectorRole } = require('../helpers/db');
+const { AltBeatmapLive, InspectorBeatmapMedia, AltScoreLive, AltScoreAttributes, InspectorUserRole, InspectorRole } = require('../helpers/db');
 const router = express.Router();
 const apicache = require('apicache-plus');
 const routeCache = apicache.newInstance();
@@ -842,6 +842,9 @@ router.all('/:beatmapId/scores/{:ruleset}', cache('1 hour'), async (req, res) =>
                     ruleset_id: foundRulesetId,
                     id: { [Op.notIn]: Array.from(existingIds) },
                 },
+                include: [
+                    { model: AltScoreAttributes, where: { attr_recalc: false }, required: false }
+                ],
                 order: [['classic_total_score', 'DESC']],
                 limit: ALT_LIMIT,
             });

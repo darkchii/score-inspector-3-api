@@ -15,62 +15,62 @@ var routeAdmin = require('./routeAdmin');
 var routeExtension = require('./routeExtension');
 
 let routes = [
-    // {
-    //     path: '/auth',
-    //     route: routeAuth
-    // },
-    // {
-    //     path: '/user',
-    //     route: routeUser
-    // },
-    // {
-    //     path: '/score',
-    //     route: routeScore
-    // },
-    // {
-    //     path: '/beatmap',
-    //     route: routeBeatmap
-    // },
-    // {
-    //     path: '/beatmappack',
-    //     route: routePack
-    // },
-    // {
-    //     path: '/difficulty',
-    //     route: routeDifficulty
-    // },
-    // {
-    //     path: '/replay',
-    //     route: routeReplay
-    // },
-    // {
-    //     path: '/leaderboard',
-    //     route: routeLeaderboard
-    // },
-    // {
-    //     path: '/team',
-    //     route: routeTeam
-    // },
-    // {
-    //     path: '/stats',
-    //     route: routeStats
-    // },
-    // {
-    //     path: '/system',
-    //     route: routeSystem
-    // },
-    // {
-    //     path: '/reputation',
-    //     route: routeReputation
-    // },
-    // {
-    //     path: '/visitor',
-    //     route: routeVisitor
-    // },
-    // {
-    //     path: '/admin',
-    //     route: routeAdmin
-    // },
+    {
+        path: '/auth',
+        route: routeAuth
+    },
+    {
+        path: '/user',
+        route: routeUser
+    },
+    {
+        path: '/score',
+        route: routeScore
+    },
+    {
+        path: '/beatmap',
+        route: routeBeatmap
+    },
+    {
+        path: '/beatmappack',
+        route: routePack
+    },
+    {
+        path: '/difficulty',
+        route: routeDifficulty
+    },
+    {
+        path: '/replay',
+        route: routeReplay
+    },
+    {
+        path: '/leaderboard',
+        route: routeLeaderboard
+    },
+    {
+        path: '/team',
+        route: routeTeam
+    },
+    {
+        path: '/stats',
+        route: routeStats
+    },
+    {
+        path: '/system',
+        route: routeSystem
+    },
+    {
+        path: '/reputation',
+        route: routeReputation
+    },
+    {
+        path: '/visitor',
+        route: routeVisitor
+    },
+    {
+        path: '/admin',
+        route: routeAdmin
+    },
     {
         path: '/extension',
         route: routeExtension

@@ -17,6 +17,7 @@ const { InspectorScoreRankModel } = require('../models/InspectorScoreRankModel')
 const InspectorPlayerVisitorModel = require('../models/InspectorPlayerVisitorModel');
 const InspectorBeatmapMediaModel = require('../models/InspectorBeatmapMediaModel');
 const { TeamModel } = require('../models/TeamModel');
+const AltScoreAttributeModel = require('../models/AltScoreAttributeModel');
 require('dotenv').config();
 
 let databases = {
@@ -78,6 +79,7 @@ const AltUserStat = AltUserStatModel(databases.osuAlt);
 const AltBeatmapLive = AltBeatmapLiveModel(databases.osuAlt);
 const AltBeatmapPack = AltBeatmapPackModel(databases.osuAlt);
 const AltScoreLive = AltScoreLiveModel(databases.osuAlt);
+const AltScoreAttributes = AltScoreAttributeModel(databases.osuAlt);
 const AltRegistration = AltRegistrationModel(databases.osuAlt);
 
 const InspectorCompletionist = InspectorCompletionistModel(databases.inspector);
@@ -106,12 +108,16 @@ AltUserLive.hasMany(AltUserStat, { foreignKey: 'user_id', sourceKey: 'user_id' }
 AltScoreLive.belongsTo(AltUserLive, { foreignKey: 'user_id_fk', targetKey: 'user_id' });
 AltUserStat.belongsTo(AltUserLive, { foreignKey: 'user_id', targetKey: 'user_id' });
 
+AltScoreAttributes.belongsTo(AltScoreLive, { foreignKey: 'score_id', targetKey: 'id' });
+AltScoreLive.hasOne(AltScoreAttributes, { foreignKey: 'score_id', sourceKey: 'id' });
+
 module.exports.CheckConnection = CheckConnection;
 module.exports.AltUserLive = AltUserLive;
 module.exports.AltUserStat = AltUserStat;
 module.exports.AltBeatmapLive = AltBeatmapLive;
 module.exports.AltBeatmapPack = AltBeatmapPack;
 module.exports.AltScoreLive = AltScoreLive;
+module.exports.AltScoreAttributes = AltScoreAttributes;
 module.exports.AltRegistration = AltRegistration;
 
 module.exports.InspectorCompletionist = InspectorCompletionist;
