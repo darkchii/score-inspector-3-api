@@ -1,6 +1,6 @@
 const express = require('express');
 const { default: Sequelize } = require('@sequelize/core');
-const { InspectorStat, Databases } = require('../helpers/db');
+const { InspectorStat, Databases, InspectorActivityLog } = require('../helpers/db');
 const { getFullUsers } = require('../helpers/userHelper');
 const { OSU_SLUGS } = require('../helpers/osuHelper');
 const router = express.Router();
@@ -261,6 +261,32 @@ router.get('/active-users', async (req, res) => {
             data: JSON.parse(data.data),
             last_updated: data.last_updated
         });
+    } catch (err) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.get('/activity-logs', async (req, res) => {
+    try {
+        const logs = await InspectorActivityLog.findAll({
+            order: [['created_at', 'DESC']],
+            limit: 10,
+        });
+
+        //try to get full user data for each user_id present, add add it to log.user
+        const userIds = logs.map(log => log.data?.user_id).filter(id => id);
+        const users = await getFullUsers(userIds);
+        const userMap = {};
+        for (const user of users) {
+            userMap[user.osuApi?.id || user.osuAlternative?.user_id] = user;
+        }
+
+        for (const log of logs) {
+            const userId = log.data?.user_id;
+            log.data.user = userMap[userId] || null;
+        }
+
+        res.json(logs);
     } catch (err) {
         res.status(500).json({ error: 'Internal server error' });
     }

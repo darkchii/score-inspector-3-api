@@ -10,6 +10,7 @@ const { Op } = require('@sequelize/core');
 const { getFullUsers } = require('../helpers/userHelper');
 const { OSU_SLUGS } = require('../helpers/osuHelper');
 const { MEDIA_FIELD_DEFINITIONS, extractYoutubeId, extractSpotifyPath, getMediaFieldDefinition, normalizeMediaValueByKey } = require('../helpers/mediaHelper');
+const { logActivity } = require('../helpers/logHelper');
 
 const BEATMAP_CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
 const COMPACT_ATTRIBUTES = [
@@ -432,7 +433,7 @@ router.get('/set/:beatmapsetId', cache('1 hour'), async (req, res) => {
             let users = [];
             try {
                 users = await getFullUsers(userIds);
-            }catch (error) {
+            } catch (error) {
                 //Do nothing, assume banned from osu
             }
 
@@ -457,7 +458,7 @@ router.get('/set/:beatmapsetId', cache('1 hour'), async (req, res) => {
             });
             set.mapper = _userMap[set.user_id] || null;
             set.description_user_data = descriptionUserIds.map((id) => _userMap[id] || null).filter((u) => u !== null);
-            
+
             const beatmapMedia = await InspectorBeatmapMedia.findOne({
                 where: {
                     beatmapset_id: beatmapsetId
@@ -465,7 +466,7 @@ router.get('/set/:beatmapsetId', cache('1 hour'), async (req, res) => {
             });
 
             set.media = beatmapMedia || null;
-            
+
             return res.status(200).json(set);
         } else {
             return res.status(404).json({ error: 'Beatmapset not found' });
@@ -526,10 +527,48 @@ router.post('/set/:beatmapsetId/media', async (req, res) => {
             spotify_id: normalizedSpotifyPath || null,
         };
 
+        const deltaChanges = {};
+        const existingMedia = await InspectorBeatmapMedia.findOne({
+            where: { beatmapset_id: values.beatmapset_id }
+        });
+
+        if (existingMedia) {
+            if (existingMedia.youtube_id !== values.youtube_id) {
+                deltaChanges.youtube_id = {
+                    old: existingMedia.youtube_id,
+                    new: values.youtube_id
+                };
+            }
+            if (existingMedia.spotify_id !== values.spotify_id) {
+                deltaChanges.spotify_id = {
+                    old: existingMedia.spotify_id,
+                    new: values.spotify_id
+                };
+            }
+        }
+
         const [media] = await InspectorBeatmapMedia.upsert(values, { returning: true });
 
         if (typeof routeCache.clear === 'function') {
             routeCache.clear(`beatmapset-${beatmapsetId}`);
+        }
+
+        try {
+            if (deltaChanges && Object.keys(deltaChanges).length > 0) {
+                const beatmapset = await GetBeatmapset(beatmapsetId);
+
+                await logActivity({
+                    type: 'UPDATE_BEATMAPSET_MEDIA',
+                    user_id: oauthUser.id,
+                    username: oauthUser.username,
+                    beatmapset_id: values.beatmapset_id,
+                    beatmapset_title: beatmapset?.title || null,
+                    beatmapset_artist: beatmapset?.artist || null,
+                    data: deltaChanges,
+                });
+            }
+        } catch (err) {
+            //not important
         }
 
         return res.status(200).json({
@@ -825,9 +864,9 @@ router.all('/:beatmapId/scores/{:ruleset}', cache('1 hour'), async (req, res) =>
     try {
         //validate ruleset if provided, if invalid, then unused (osu api will use default for given beatmap)
         let _ruleset = null;
-        if(ruleset) {
+        if (ruleset) {
             const slugLower = ruleset.toLowerCase();
-            if(slugLower === 'total' || !OSU_SLUGS.hasOwnProperty(slugLower)) {
+            if (slugLower === 'total' || !OSU_SLUGS.hasOwnProperty(slugLower)) {
                 _ruleset = null;
             }
         }
@@ -838,7 +877,7 @@ router.all('/:beatmapId/scores/{:ruleset}', cache('1 hour'), async (req, res) =>
 
         let foundRulesetId = osu_api_scores.length > 0 ? osu_api_scores[0].ruleset_id : null;
         console.log('Found ruleset ID from API scores:', foundRulesetId);
-        if(foundRulesetId !== null && !isNaN(foundRulesetId)) {
+        if (foundRulesetId !== null && !isNaN(foundRulesetId)) {
             const existingIds = new Set(osu_api_scores.map(s => s.id));
             const altScores = await AltScoreLive.findAll({
                 where: {
@@ -856,7 +895,7 @@ router.all('/:beatmapId/scores/{:ruleset}', cache('1 hour'), async (req, res) =>
             osu_alt_scores = JSON.parse(JSON.stringify(altScores)); //convert to plain objects
         }
 
-        if(osu_api_scores.length > 0 || osu_alt_scores.length > 0) {
+        if (osu_api_scores.length > 0 || osu_alt_scores.length > 0) {
             //get all user ids
             const userIds = new Set();
             osu_api_scores.forEach(s => userIds.add(s.user_id));
@@ -881,7 +920,7 @@ router.all('/:beatmapId/scores/{:ruleset}', cache('1 hour'), async (req, res) =>
         } else {
             return res.status(404).json({ error: 'Scores not found' });
         }
-    }catch (error) {
+    } catch (error) {
         console.error('Error fetching beatmap scores:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
@@ -945,7 +984,7 @@ router.get('/:beatmapId/max-statistics/:ruleset', cache('1 hour'), async (req, r
         //find first score with build_id set to some value, if none, just use first score
         const _score = beatmapScores.scores.find(s => s.build_id && s.build_id > 0) || beatmapScores.scores[0];
         return res.status(200).json(_score?.maximum_statistics || {});
-    }catch (error) {
+    } catch (error) {
         console.error('Error fetching beatmap max statistics:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }

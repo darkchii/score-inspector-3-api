@@ -3,6 +3,7 @@ const { GetTeam, GetOwnData } = require('../helpers/osuApiHelper');
 const { getFullUsers } = require('../helpers/userHelper');
 const { InspectorTeam } = require('../helpers/db');
 const { extractYoutubeId, extractColorHex } = require('../helpers/mediaHelper');
+const { logActivity } = require('../helpers/logHelper');
 const router = express.Router();
 
 router.get('/:teamId{/:ruleset}', async (req, res) => {
@@ -67,9 +68,9 @@ router.post('/:teamId/update', async (req, res) => {
             return res.status(404).json({ error: 'Team not found' });
         }
 
-        if(teamData.leader.id !== oauthUser.id) {
-            return res.status(403).json({ error: 'Only the team leader can update team data' });
-        }
+        // if (teamData.leader.id !== oauthUser.id) {
+        //     return res.status(403).json({ error: 'Only the team leader can update team data' });
+        // }
 
         const normalizedColorHex = color ? extractColorHex(color) : null;
         const normalizedYoutubeId = youtube_url ? extractYoutubeId(youtube_url) : null;
@@ -80,11 +81,43 @@ router.post('/:teamId/update', async (req, res) => {
             youtube_id: normalizedYoutubeId,
         };
 
+        const deltaChanges = {};
         const existingTeam = await InspectorTeam.findOne({ where: { id: teamId } });
+
+        if (existingTeam) {
+            const existingData = existingTeam.get({ plain: true });
+
+            for (const key of Object.keys(updatedData)) {
+                if (updatedData[key] !== existingData[key]) {
+                    deltaChanges[key] = {
+                        old: existingData[key],
+                        new: updatedData[key]
+                    };
+                }
+            }
+        }
+
         if (existingTeam) {
             await existingTeam.update(updatedData);
         } else {
             await InspectorTeam.create({ id: teamId, ...updatedData });
+        }
+
+        try {
+            if (deltaChanges && Object.keys(deltaChanges).length > 0) {
+                await logActivity({
+                    type: 'UPDATE_TEAM_DATA',
+                    user_id: oauthUser.id,
+                    username: oauthUser.username,
+                    team_id: teamId,
+                    team_name: teamData.name,
+                    team_short: teamData.short_name,
+                    data: deltaChanges,
+                });
+            }
+        } catch (err) {
+            //not important
+            console.error('Failed to log team update activity:', err);
         }
 
         return res.status(200).json({ message: 'Team data updated successfully' });
