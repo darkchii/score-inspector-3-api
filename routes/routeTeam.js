@@ -68,9 +68,9 @@ router.post('/:teamId/update', async (req, res) => {
             return res.status(404).json({ error: 'Team not found' });
         }
 
-        // if (teamData.leader.id !== oauthUser.id) {
-        //     return res.status(403).json({ error: 'Only the team leader can update team data' });
-        // }
+        if (teamData.leader.id !== oauthUser.id) {
+            return res.status(403).json({ error: 'Only the team leader can update team data' });
+        }
 
         const normalizedColorHex = color ? extractColorHex(color) : null;
         const normalizedYoutubeId = youtube_url ? extractYoutubeId(youtube_url) : null;
