@@ -1,7 +1,8 @@
 const express = require('express');
-const { GetTeam } = require('../helpers/osuApiHelper');
+const { GetTeam, GetOwnData } = require('../helpers/osuApiHelper');
 const { getFullUsers } = require('../helpers/userHelper');
 const { InspectorTeam } = require('../helpers/db');
+const { extractYoutubeId, extractColorHex } = require('../helpers/mediaHelper');
 const router = express.Router();
 
 router.get('/:teamId{/:ruleset}', async (req, res) => {
@@ -25,8 +26,70 @@ router.get('/:teamId{/:ruleset}', async (req, res) => {
             return res.status(200).json(mergedData);
         }
         return res.status(404).json({ error: 'Team not found' });
-    }catch (error) {
+    } catch (error) {
         console.error('Error during team retrieval:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.post('/:teamId/update', async (req, res) => {
+    // For updating team data in the database (the non-osu stuff that we provide)
+    const { teamId } = req.params;
+    const { user_id, access_token, color, youtube_url } = req.body || {};
+
+    if (!teamId || isNaN(teamId)) {
+        return res.status(400).json({ error: 'Team ID must be a number' });
+    }
+
+    if (!access_token || typeof access_token !== 'string' || !user_id || isNaN(user_id)) {
+        return res.status(401).json({ error: 'Unable to authenticate user' });
+    }
+
+    let oauthUser = null;
+    try {
+        oauthUser = await GetOwnData(access_token);
+    } catch (error) {
+        console.error('Failed to validate access token for media update:', error);
+        return res.status(401).json({ error: 'Invalid access token' });
+    }
+
+    if (!oauthUser || !oauthUser.id) {
+        return res.status(401).json({ error: 'Invalid user data from access token' });
+    }
+
+    if (parseInt(user_id, 10) !== oauthUser.id) {
+        return res.status(403).json({ error: 'Access token does not match the provided user ID' });
+    }
+
+    try {
+        const teamData = await GetTeam(teamId);
+        if (!teamData) {
+            return res.status(404).json({ error: 'Team not found' });
+        }
+
+        if(teamData.leader.id !== oauthUser.id) {
+            return res.status(403).json({ error: 'Only the team leader can update team data' });
+        }
+
+        const normalizedColorHex = color ? extractColorHex(color) : null;
+        const normalizedYoutubeId = youtube_url ? extractYoutubeId(youtube_url) : null;
+
+        //we allow nulls to clear the values, so we don't check for null here
+        const updatedData = {
+            color: normalizedColorHex,
+            youtube_id: normalizedYoutubeId,
+        };
+
+        const existingTeam = await InspectorTeam.findOne({ where: { id: teamId } });
+        if (existingTeam) {
+            await existingTeam.update(updatedData);
+        } else {
+            await InspectorTeam.create({ id: teamId, ...updatedData });
+        }
+
+        return res.status(200).json({ message: 'Team data updated successfully' });
+    } catch (error) {
+        console.error('Error during team update:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
 });

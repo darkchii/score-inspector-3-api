@@ -478,14 +478,14 @@ router.get('/set/:beatmapsetId', cache('1 hour'), async (req, res) => {
 
 router.post('/set/:beatmapsetId/media', async (req, res) => {
     const { beatmapsetId } = req.params;
-    const { access_token, youtube_url, spotify_url } = req.body || {};
+    const { user_id, access_token, youtube_url, spotify_url } = req.body || {};
 
     if (!beatmapsetId || isNaN(beatmapsetId)) {
         return res.status(400).json({ error: 'Beatmapset ID must be a number' });
     }
 
-    if (!access_token || typeof access_token !== 'string') {
-        return res.status(401).json({ error: 'Access token is required' });
+    if (!access_token || typeof access_token !== 'string' || !user_id || isNaN(user_id)) {
+        return res.status(401).json({ error: 'Unable to authenticate user' });
     }
 
     let oauthUser = null;
@@ -498,6 +498,10 @@ router.post('/set/:beatmapsetId/media', async (req, res) => {
 
     if (!oauthUser || !oauthUser.id) {
         return res.status(401).json({ error: 'Invalid user data from access token' });
+    }
+
+    if (parseInt(user_id, 10) !== oauthUser.id) {
+        return res.status(403).json({ error: 'Access token does not match the provided user ID' });
     }
 
     try {
@@ -922,6 +926,27 @@ router.get('/:beatmapId', cache('1 hour'), async (req, res) => {
         }
     } catch (error) {
         console.error('Error fetching beatmap:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.get('/:beatmapId/max-statistics/:ruleset', cache('1 hour'), async (req, res) => {
+    const { beatmapId, ruleset } = req.params;
+    if (!beatmapId) {
+        return res.status(400).json({ error: 'Beatmap ID parameter is required' });
+    }
+
+    try {
+        const beatmapScores = await GetBeatmapScores(beatmapId, ruleset);
+        if (!beatmapScores || !beatmapScores.scores || beatmapScores.scores.length === 0) {
+            return res.status(404).json({ error: 'No scores found for the specified beatmap and ruleset' });
+        }
+        // const _score = beatmapScores.scores[0]; //we dont care which, just a score
+        //find first score with build_id set to some value, if none, just use first score
+        const _score = beatmapScores.scores.find(s => s.build_id && s.build_id > 0) || beatmapScores.scores[0];
+        return res.status(200).json(_score?.maximum_statistics || {});
+    }catch (error) {
+        console.error('Error fetching beatmap max statistics:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
 });
