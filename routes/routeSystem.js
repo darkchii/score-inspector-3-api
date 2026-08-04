@@ -161,6 +161,10 @@ const realm_version = 51; // Version as of 2026-02-15, should always match what 
 let IP_CACHE = {}; //limit to one IP per minute, this is a fairly heavy task
 let IP_CACHE_TIMEOUT = 60 * 1000; //1 minute
 router.post('/process-realm', realmUploadMiddleware, async (req, res) => {
+    //disable for now
+
+    return res.status(503).json({ error: 'This endpoint is temporarily disabled' });
+    
     const clientIp = req.ip;
     const now = Date.now();
     if (IP_CACHE[clientIp] && (now - IP_CACHE[clientIp] < IP_CACHE_TIMEOUT)) { //10 mins for testing

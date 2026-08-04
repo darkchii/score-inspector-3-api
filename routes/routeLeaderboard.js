@@ -5,6 +5,7 @@ const { OSU_SLUGS } = require('../helpers/osuHelper');
 const { GetReplay } = require('../helpers/osuApiHelper');
 const { getFullUsers } = require('../helpers/userHelper');
 const { Op, default: Sequelize } = require('@sequelize/core');
+const cache = require('apicache').middleware;
 const router = express.Router();
 
 router.get('/score-rank/info/:ruleset', async (req, res) => {
@@ -44,7 +45,7 @@ const SCORE_RANK_LIMIT = 50;
 const SCORE_RANK_VALID_STATS = ['rank', 'gained_score', 'gained_rank'];
 //gained stats need to compare with old_rank and old_ranked_score to calculate the gain
 //gained_rank would be old_rank - rank, gained_score would be ranked_score - old_ranked_score
-router.get('/score-rank/:ruleset/:stat/:date{/:page}', async (req, res) => {
+router.get('/score-rank/:ruleset/:stat/:date{/:page}', cache('1 hour'), async (req, res) => {
     const { ruleset, stat, date, page } = req.params;
 
     //validate ruleset, no 'all' allowed here
@@ -315,7 +316,7 @@ const LEADERBOARDS = {
 }
 
 const DEFAULT_LEADERBOARD_LIMIT = 50;
-router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) => {
+router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', cache('1 hour'), async (req, res) => {
     let { ruleset, stat, page, dir, limit, country } = req.params;
 
     if (country && !/^[a-zA-Z]{2}$/.test(country)) {

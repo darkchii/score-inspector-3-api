@@ -477,7 +477,7 @@ router.get('/set/:beatmapsetId', cache('1 hour'), async (req, res) => {
     }
 });
 
-router.post('/set/:beatmapsetId/media', async (req, res) => {
+router.post('/set/:beatmapsetId/media', cache('1 hour'), async (req, res) => {
     const { beatmapsetId } = req.params;
     const { user_id, access_token, youtube_url, spotify_url } = req.body || {};
 
@@ -582,7 +582,7 @@ router.post('/set/:beatmapsetId/media', async (req, res) => {
     }
 });
 
-router.post('/media/recommendations', async (req, res) => {
+router.post('/media/recommendations', cache('1 hour'), async (req, res) => {
     const { source_type, source_value, limit } = req.body || {};
     const sourceField = getMediaFieldDefinition(source_type);
 
@@ -624,7 +624,7 @@ router.post('/media/recommendations', async (req, res) => {
     }
 });
 
-router.post('/media/recommendations/by-artist-title', async (req, res) => {
+router.post('/media/recommendations/by-artist-title', cache('1 hour'), async (req, res) => {
     const { beatmapset_id, artist, title, limit, similar_set_limit } = req.body || {};
     const recommendationLimit = Math.min(Math.max(toInteger(limit, 5), 1), 20);
     const similarSetLimit = Math.min(Math.max(toInteger(similar_set_limit, 100), 10), 400);

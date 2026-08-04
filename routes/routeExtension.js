@@ -3,12 +3,13 @@ const express = require('express');
 const { AltUserLive, AltUserStat, getScoreRankModelByRuleset, InspectorCompletionist, InspectorTeam, InspectorBeatmapMedia } = require('../helpers/db');
 const { Op } = require('@sequelize/core');
 const router = express.Router();
+const cache = require('apicache').middleware;
 
 router.get('/', (req, res) => {
     res.status(200).json({ message: 'Alya Kujou' });
 });
 
-router.post('/profile', async (req, res) => {
+router.post('/profile', cache('1 hour'), async (req, res) => {
     const { user_id, mode } = req.body;
 
     if (!user_id) {
@@ -65,7 +66,7 @@ router.post('/profile', async (req, res) => {
     }
 });
 
-router.post('/teamData', async (req, res) => {
+router.post('/teamData', cache('1 hour'), async (req, res) => {
     //expects: array of team IDs. This endpoint only returns extra team data, not osu!api data
     const { teamIds } = req.body;
     if (!teamIds || !Array.isArray(teamIds)) {
@@ -89,7 +90,7 @@ router.post('/teamData', async (req, res) => {
     }
 });
 
-router.get('/beatmapMedia/:beatmapset_id', async (req, res) => {
+router.get('/beatmapMedia/:beatmapset_id', cache('1 hour'), async (req, res) => {
     const { beatmapset_id } = req.params;
     if (!beatmapset_id) {
         return res.status(400).json({ error: 'beatmapset_id parameter is required' });
@@ -103,7 +104,7 @@ router.get('/beatmapMedia/:beatmapset_id', async (req, res) => {
     }
 });
 
-router.post('/score_rank_history/:mode', async (req, res) => {
+router.post('/score_rank_history/:mode', cache('1 hour'), async (req, res) => {
     try {
         const mode = req.params.mode;
         const user_ids = req.body.user_ids;
