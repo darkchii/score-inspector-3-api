@@ -5,7 +5,9 @@ const { OSU_SLUGS } = require('../helpers/osuHelper');
 const { GetReplay } = require('../helpers/osuApiHelper');
 const { getFullUsers } = require('../helpers/userHelper');
 const { Op, default: Sequelize } = require('@sequelize/core');
-const cache = require('apicache').middleware;
+const apicache = require('apicache-plus');
+const routeCache = apicache.newInstance();
+const cache = routeCache.middleware;
 const router = express.Router();
 
 router.get('/score-rank/info/:ruleset', async (req, res) => {

@@ -3,7 +3,9 @@ const express = require('express');
 const { AltUserLive, AltUserStat, getScoreRankModelByRuleset, InspectorCompletionist, InspectorTeam, InspectorBeatmapMedia } = require('../helpers/db');
 const { Op } = require('@sequelize/core');
 const router = express.Router();
-const cache = require('apicache').middleware;
+const apicache = require('apicache-plus');
+const routeCache = apicache.newInstance();
+const cache = routeCache.middleware;
 
 router.get('/', (req, res) => {
     res.status(200).json({ message: 'Alya Kujou' });

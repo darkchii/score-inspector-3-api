@@ -3,7 +3,9 @@ const { AltBeatmapLive } = require('../helpers/db');
 const { FetchDifficultyData, FetchDifficultyDetailed } = require('../helpers/diffCalcHelper');
 const { OSU_SLUGS } = require('../helpers/osuHelper');
 const { GetReplay } = require('../helpers/osuApiHelper');
-const cache = require('apicache').middleware;
+const apicache = require('apicache-plus');
+const routeCache = apicache.newInstance();
+const cache = routeCache.middleware;
 const router = express.Router();
 
 function parseRequest(params, body) {

@@ -44,7 +44,7 @@ app.use('/ping', function (req, res, next) {
 });
 
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`);
+  console.log(`osu! score inspector API listening on port ${port}`);
 });
 
 ApplyRoutes(app);
