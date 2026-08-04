@@ -14,7 +14,7 @@ const allowedOrigins = new Set([
   'http://localhost:5173',
   'http://127.0.0.1:3006',
   'http://127.0.0.1:5173',
-  // 'https://*.score-inspector-3-frontend.pages.dev',
+  'https://*.score-inspector-3-frontend.pages.dev',
   'https://osu.ppy.sh'
 ]);
 
