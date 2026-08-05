@@ -4,6 +4,9 @@ const { InspectorStat, Databases, InspectorActivityLog } = require('../helpers/d
 const { getFullUsers } = require('../helpers/userHelper');
 const { OSU_SLUGS } = require('../helpers/osuHelper');
 const router = express.Router();
+const apicache = require('apicache-plus');
+const routeCache = apicache.newInstance();
+const cache = routeCache.middleware;
 
 const STAT_TYPE_CONFIGS = {
     clears: {
@@ -100,7 +103,7 @@ async function queryUserPosition(ruleset_id, date_start, date_end, select_clear,
 }
 
 const top_day_periods = ['today', 'yesterday', 'this_month', 'last_month', 'year', 'last_year'];
-router.get('/top-day/:ruleset', async (req, res) => {
+router.get('/top-day/:ruleset', cache('5 minutes'), async (req, res) => {
     const { ruleset } = req.params;
     let _ruleset = ruleset;
     //if ruleset is 'all', replace with 'total'
@@ -196,7 +199,7 @@ router.get('/top-day/:ruleset', async (req, res) => {
     }
 });
 
-router.get('/global-stats', async (req, res) => {
+router.get('/global-stats', cache('5 minutes'), async (req, res) => {
     try {
         //get: beatmap_counts, score_counts, user_counts
         const data = await InspectorStat.findAll({
@@ -225,7 +228,7 @@ router.get('/global-stats', async (req, res) => {
     }
 });
 
-router.get('/score-submissions/:ruleset', async (req, res) => {
+router.get('/score-submissions/:ruleset', cache('5 minutes'), async (req, res) => {
     const { ruleset } = req.params;
     let _ruleset = ruleset;
     if (ruleset === 'all') {
@@ -251,7 +254,7 @@ router.get('/score-submissions/:ruleset', async (req, res) => {
     }
 });
 
-router.get('/active-users', async (req, res) => {
+router.get('/active-users', cache('5 minutes'), async (req, res) => {
     try {
         const data = await InspectorStat.findOne({ where: { metric: 'active_users' } });
         if (!data || !data.data) {
@@ -266,7 +269,7 @@ router.get('/active-users', async (req, res) => {
     }
 });
 
-router.get('/activity-logs', async (req, res) => {
+router.get('/activity-logs', cache('5 minutes'), async (req, res) => {
     try {
         const logs = await InspectorActivityLog.findAll({
             order: [['created_at', 'DESC']],
