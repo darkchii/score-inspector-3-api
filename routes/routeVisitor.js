@@ -55,7 +55,7 @@ router.post('/', async (req, res) => {
         }
 
         //check if target user exists on osu!alternative (user.osuAlternative)
-        const targetUser = users.find(u => u.osuApi?.id === targetId);
+        const targetUser = users.find(u => u.osuApi?.id == targetId);
         if (!targetUser || !targetUser.osuAlternative) {
             return res.status(404).json({ error: 'Target user not found in osu!alternative' });
         }
