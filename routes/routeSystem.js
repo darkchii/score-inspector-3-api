@@ -126,7 +126,7 @@ setInterval(() => {
     });
 }, 60 * 60 * 1000).unref();
 
-router.get('/info', apicache('1 hour'), async (req, res) => {
+router.get('/info', apicache('5 minutes'), async (req, res) => {
     try {
         const ver = process.env.npm_package_version || 'unknown';
         let altDbAccessible = false;
