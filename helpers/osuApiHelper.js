@@ -250,8 +250,8 @@ async function GetScore(scoreId) {
         }
         throw new Error('Invalid response from osu! API');
     } catch (error) {
-        console.error('Error during getting replay data:', error);
-        throw new Error('Failed to get replay data from osu! API');
+        console.error('Error during getting score data:', error);
+        throw new Error('Failed to get score data from osu! API');
     }
 }
 
@@ -268,6 +268,21 @@ async function GetBeatmap(beatmapId) {
     catch (error) {
         console.error('Error during getting beatmap data:', error);
         throw new Error('Failed to get beatmap data from osu! API');
+    }
+}
+
+module.exports.GetBeatmapScores = GetBeatmapScores;
+async function GetBeatmapScores(beatmapId, ruleset = null, mods = null, limit = 100) {
+    try {
+        const url = `https://osu.ppy.sh/api/v2/beatmaps/${beatmapId}/scores?limit=${limit}${ruleset ? `&mode=${ruleset}` : ''}${mods ? `&mods=${mods}` : ''}`;
+        const response = await AuthorizedClientApiCall(url, 'get');
+        if (response) {
+            return response;
+        }
+        throw new Error('Invalid response from osu! API');
+    }catch (error) {
+        console.error('Error during getting beatmap scores:', error);
+        throw new Error('Failed to get beatmap scores from osu! API');
     }
 }
 
@@ -305,6 +320,24 @@ async function GetBeatmapScores(beatmapId, ruleset = null, mods = null) {
     catch (error) {
         console.error('Error during getting beatmap scores:', error);
         throw new Error('Failed to get beatmap scores from osu! API');
+    }
+}
+
+module.exports.GetTeam = GetTeam;
+async function GetTeam(teamId, ruleset = null) {
+    try {
+        let url = `https://osu.ppy.sh/api/v2/teams/${teamId}`;
+        if (ruleset !== null) {
+            url += `/${ruleset}`;
+        }
+        const response = await AuthorizedClientApiCall(url, 'get');
+        if (response) {
+            return response;
+        }
+        throw new Error('Invalid response from osu! API');
+    } catch (error) {
+        console.error('Error during getting team data:', error);
+        throw new Error('Failed to get team data from osu! API');
     }
 }
 

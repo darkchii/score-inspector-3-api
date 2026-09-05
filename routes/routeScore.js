@@ -1,6 +1,6 @@
 const express = require('express');
 const { Search } = require('../helpers/osuApiHelper');
-const { AltUserLive, CheckConnection, Databases, AltScoreLive, AltBeatmapLive } = require('../helpers/db');
+const { AltUserLive, CheckConnection, Databases, AltScoreLive, AltBeatmapLive, AltScoreAttributes } = require('../helpers/db');
 const { FetchDifficultyData } = require('../helpers/diffCalcHelper');
 const router = express.Router();
 const apicache = require('apicache-plus');
@@ -18,7 +18,13 @@ router.get('/:scoreId', apicache('15 minutes'), async (req, res) => {
     }
 
     try {
-        const score = await AltScoreLive.findOne({ where: { id: scoreId } });
+        const score = await AltScoreLive.findOne(
+            { 
+                where: { id: scoreId }, 
+                include: [
+                    { model: AltScoreAttributes, where: { attr_recalc: false }, required: false }
+                ]
+            });
         if (score) {
             if(fullData === 'true') {
                 const beatmap = await AltBeatmapLive.findOne({ where: { beatmap_id: score.beatmap_id } });

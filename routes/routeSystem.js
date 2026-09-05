@@ -126,11 +126,17 @@ setInterval(() => {
     });
 }, 60 * 60 * 1000).unref();
 
-router.get('/info', apicache('1 hour'), async (req, res) => {
+router.get('/info', apicache('5 minutes'), async (req, res) => {
     try {
         const ver = process.env.npm_package_version || 'unknown';
-        const altDbAccessable = Databases.osuAlt ? await CheckConnection(Databases.osuAlt) : false;
-        return res.status(200).json({ version: ver, altDbAccessable: altDbAccessable });
+        let altDbAccessible = false;
+        try{
+            altDbAccessible = Databases.osuAlt ? await CheckConnection(Databases.osuAlt) : false;
+        }
+        catch(err){
+            //no error, just means alt db is not accessable so we will return false
+        }
+        return res.status(200).json({ version: ver, altDbAccessible: altDbAccessible });
     } catch (error) {
         console.error('Error fetching all packs:', error);
         return res.status(500).json({ error: 'Internal server error' });
@@ -155,6 +161,10 @@ const realm_version = 51; // Version as of 2026-02-15, should always match what 
 let IP_CACHE = {}; //limit to one IP per minute, this is a fairly heavy task
 let IP_CACHE_TIMEOUT = 60 * 1000; //1 minute
 router.post('/process-realm', realmUploadMiddleware, async (req, res) => {
+    //disable for now
+
+    return res.status(503).json({ error: 'This endpoint is temporarily disabled' });
+    
     const clientIp = req.ip;
     const now = Date.now();
     if (IP_CACHE[clientIp] && (now - IP_CACHE[clientIp] < IP_CACHE_TIMEOUT)) { //10 mins for testing

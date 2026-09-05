@@ -1,10 +1,10 @@
 const express = require('express');
 const { AltBeatmapPack } = require('../helpers/db');
 const router = express.Router();
-const apicache = require('apicache-plus');
+const cache = require('apicache-plus').middleware;
 const { FetchBeatmapFile } = require('../helpers/diffCalcHelper');
 
-router.get('/all', apicache('1 hour') ,async (req, res) => {
+router.get('/all', cache('1 hour') ,async (req, res) => {
     try {
         const beatmaps = await AltBeatmapPack.findAll({ raw: true });
         return res.status(200).json(beatmaps);
@@ -14,7 +14,7 @@ router.get('/all', apicache('1 hour') ,async (req, res) => {
     }
 });
 
-router.get('/:packId', apicache('1 hour'), async (req, res) => {
+router.get('/:packId', cache('1 hour'), async (req, res) => {
     //Validate packId
     const { packId } = req.params;
     if (!packId) {

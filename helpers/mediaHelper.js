@@ -101,6 +101,20 @@ function extractSpotifyPath(input) {
     return SPOTIFY_PATH_REGEX.test(normalized) ? normalized : null;
 }
 
+function extractColorHex(input) {
+    //make sure its formatted as hex with a leading # and 6 characters after it
+    const value = normalizeInput(input);
+    if (!value) {
+        return null;
+    }
+
+    const hexRegex = /^#([0-9A-Fa-f]{6})$/;
+    if (hexRegex.test(value)) {
+        return value.toUpperCase();
+    }
+    return null;
+}
+
 function getMediaFieldDefinition(key) {
     return MEDIA_FIELD_DEFINITIONS.find((field) => field.key === key) || null;
 }
@@ -120,4 +134,5 @@ module.exports = {
     normalizeMediaValueByKey,
     extractYoutubeId,
     extractSpotifyPath,
+    extractColorHex,
 };

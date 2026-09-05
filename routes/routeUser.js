@@ -1,6 +1,6 @@
 const express = require('express');
 const { Search, GetUserData, GetUsers, CheckAuth } = require('../helpers/osuApiHelper');
-const { AltUserLive, CheckConnection, Databases, AltScoreLive, Team, AltRegistration, InspectorCompletionist, InspectorUserRole, InspectorRole, InspectorPlayerReputation } = require('../helpers/db');
+const { AltUserLive, CheckConnection, Databases, AltScoreLive, AltRegistration, InspectorCompletionist, InspectorUserRole, InspectorRole, InspectorPlayerReputation, AltScoreAttributes } = require('../helpers/db');
 const apicache = require('apicache-plus');
 const { default: Sequelize, Op, literal } = require('@sequelize/core');
 const { getFullUsers } = require('../helpers/userHelper');
@@ -90,7 +90,16 @@ router.get('/:userId/scores', apicache('1 hour'), async (req, res) => {
     }
 
     try {
-        const scores = await AltScoreLive.findAll({ where: { user_id: userId } });
+        const scores = await AltScoreLive.findAll({ 
+            where: { user_id: userId },
+            include: [
+                {
+                    model: AltScoreAttributes,
+                    where: { attr_recalc: false },
+                    required: false
+                }
+            ]
+        });
         if (scores && scores.length > 0) {
             return res.status(200).json(scores);
         } else {

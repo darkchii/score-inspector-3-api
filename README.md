@@ -19,7 +19,6 @@ Configuration is done through a `.env` file.
     MYSQL_PASS=
     MYSQL_HOST=
     MYSQL_DB=
-    MYSQL_DB_TEAM= #teams live in a dedicated database
     ALT_DB_USER=
     ALT_DB_PASSWORD=
     ALT_DB_HOST=

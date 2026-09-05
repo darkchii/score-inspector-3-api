@@ -1,5 +1,5 @@
 const express = require('express');
-const { AltBeatmapLive, InspectorBeatmapMedia, AltScoreLive, InspectorUserRole, InspectorRole } = require('../helpers/db');
+const { AltBeatmapLive, InspectorBeatmapMedia, AltScoreLive, AltScoreAttributes, InspectorUserRole, InspectorRole } = require('../helpers/db');
 const router = express.Router();
 const apicache = require('apicache-plus');
 const routeCache = apicache.newInstance();
@@ -10,6 +10,7 @@ const { Op } = require('@sequelize/core');
 const { getFullUsers } = require('../helpers/userHelper');
 const { OSU_SLUGS } = require('../helpers/osuHelper');
 const { MEDIA_FIELD_DEFINITIONS, extractYoutubeId, extractSpotifyPath, getMediaFieldDefinition, normalizeMediaValueByKey } = require('../helpers/mediaHelper');
+const { logActivity } = require('../helpers/logHelper');
 
 const BEATMAP_CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
 const COMPACT_ATTRIBUTES = [
@@ -432,7 +433,7 @@ router.get('/set/:beatmapsetId', cache('1 hour'), async (req, res) => {
             let users = [];
             try {
                 users = await getFullUsers(userIds);
-            }catch (error) {
+            } catch (error) {
                 //Do nothing, assume banned from osu
             }
 
@@ -457,7 +458,7 @@ router.get('/set/:beatmapsetId', cache('1 hour'), async (req, res) => {
             });
             set.mapper = _userMap[set.user_id] || null;
             set.description_user_data = descriptionUserIds.map((id) => _userMap[id] || null).filter((u) => u !== null);
-            
+
             const beatmapMedia = await InspectorBeatmapMedia.findOne({
                 where: {
                     beatmapset_id: beatmapsetId
@@ -465,7 +466,7 @@ router.get('/set/:beatmapsetId', cache('1 hour'), async (req, res) => {
             });
 
             set.media = beatmapMedia || null;
-            
+
             return res.status(200).json(set);
         } else {
             return res.status(404).json({ error: 'Beatmapset not found' });
@@ -476,16 +477,16 @@ router.get('/set/:beatmapsetId', cache('1 hour'), async (req, res) => {
     }
 });
 
-router.post('/set/:beatmapsetId/media', async (req, res) => {
+router.post('/set/:beatmapsetId/media', cache('1 hour'), async (req, res) => {
     const { beatmapsetId } = req.params;
-    const { access_token, youtube_url, spotify_url } = req.body || {};
+    const { user_id, access_token, youtube_url, spotify_url } = req.body || {};
 
     if (!beatmapsetId || isNaN(beatmapsetId)) {
         return res.status(400).json({ error: 'Beatmapset ID must be a number' });
     }
 
-    if (!access_token || typeof access_token !== 'string') {
-        return res.status(401).json({ error: 'Access token is required' });
+    if (!access_token || typeof access_token !== 'string' || !user_id || isNaN(user_id)) {
+        return res.status(401).json({ error: 'Unable to authenticate user' });
     }
 
     let oauthUser = null;
@@ -498,6 +499,10 @@ router.post('/set/:beatmapsetId/media', async (req, res) => {
 
     if (!oauthUser || !oauthUser.id) {
         return res.status(401).json({ error: 'Invalid user data from access token' });
+    }
+
+    if (parseInt(user_id, 10) !== oauthUser.id) {
+        return res.status(403).json({ error: 'Access token does not match the provided user ID' });
     }
 
     try {
@@ -522,10 +527,48 @@ router.post('/set/:beatmapsetId/media', async (req, res) => {
             spotify_id: normalizedSpotifyPath || null,
         };
 
+        const deltaChanges = {};
+        const existingMedia = await InspectorBeatmapMedia.findOne({
+            where: { beatmapset_id: values.beatmapset_id }
+        });
+
+        if (existingMedia) {
+            if (existingMedia.youtube_id !== values.youtube_id) {
+                deltaChanges.youtube_id = {
+                    old: existingMedia.youtube_id,
+                    new: values.youtube_id
+                };
+            }
+            if (existingMedia.spotify_id !== values.spotify_id) {
+                deltaChanges.spotify_id = {
+                    old: existingMedia.spotify_id,
+                    new: values.spotify_id
+                };
+            }
+        }
+
         const [media] = await InspectorBeatmapMedia.upsert(values, { returning: true });
 
         if (typeof routeCache.clear === 'function') {
             routeCache.clear(`beatmapset-${beatmapsetId}`);
+        }
+
+        try {
+            if (deltaChanges && Object.keys(deltaChanges).length > 0) {
+                const beatmapset = await GetBeatmapset(beatmapsetId);
+
+                await logActivity({
+                    type: 'UPDATE_BEATMAPSET_MEDIA',
+                    user_id: oauthUser.id,
+                    username: oauthUser.username,
+                    beatmapset_id: values.beatmapset_id,
+                    beatmapset_title: beatmapset?.title || null,
+                    beatmapset_artist: beatmapset?.artist || null,
+                    data: deltaChanges,
+                });
+            }
+        } catch (err) {
+            //not important
         }
 
         return res.status(200).json({
@@ -539,7 +582,7 @@ router.post('/set/:beatmapsetId/media', async (req, res) => {
     }
 });
 
-router.post('/media/recommendations', async (req, res) => {
+router.post('/media/recommendations', cache('1 hour'), async (req, res) => {
     const { source_type, source_value, limit } = req.body || {};
     const sourceField = getMediaFieldDefinition(source_type);
 
@@ -581,7 +624,7 @@ router.post('/media/recommendations', async (req, res) => {
     }
 });
 
-router.post('/media/recommendations/by-artist-title', async (req, res) => {
+router.post('/media/recommendations/by-artist-title', cache('1 hour'), async (req, res) => {
     const { beatmapset_id, artist, title, limit, similar_set_limit } = req.body || {};
     const recommendationLimit = Math.min(Math.max(toInteger(limit, 5), 1), 20);
     const similarSetLimit = Math.min(Math.max(toInteger(similar_set_limit, 100), 10), 400);
@@ -821,9 +864,9 @@ router.all('/:beatmapId/scores/{:ruleset}', cache('1 hour'), async (req, res) =>
     try {
         //validate ruleset if provided, if invalid, then unused (osu api will use default for given beatmap)
         let _ruleset = null;
-        if(ruleset) {
+        if (ruleset) {
             const slugLower = ruleset.toLowerCase();
-            if(slugLower === 'total' || !OSU_SLUGS.hasOwnProperty(slugLower)) {
+            if (slugLower === 'total' || !OSU_SLUGS.hasOwnProperty(slugLower)) {
                 _ruleset = null;
             }
         }
@@ -834,7 +877,7 @@ router.all('/:beatmapId/scores/{:ruleset}', cache('1 hour'), async (req, res) =>
 
         let foundRulesetId = osu_api_scores.length > 0 ? osu_api_scores[0].ruleset_id : null;
         console.log('Found ruleset ID from API scores:', foundRulesetId);
-        if(foundRulesetId !== null && !isNaN(foundRulesetId)) {
+        if (foundRulesetId !== null && !isNaN(foundRulesetId)) {
             const existingIds = new Set(osu_api_scores.map(s => s.id));
             const altScores = await AltScoreLive.findAll({
                 where: {
@@ -842,6 +885,9 @@ router.all('/:beatmapId/scores/{:ruleset}', cache('1 hour'), async (req, res) =>
                     ruleset_id: foundRulesetId,
                     id: { [Op.notIn]: Array.from(existingIds) },
                 },
+                include: [
+                    { model: AltScoreAttributes, where: { attr_recalc: false }, required: false }
+                ],
                 order: [['classic_total_score', 'DESC']],
                 limit: ALT_LIMIT,
             });
@@ -849,7 +895,7 @@ router.all('/:beatmapId/scores/{:ruleset}', cache('1 hour'), async (req, res) =>
             osu_alt_scores = JSON.parse(JSON.stringify(altScores)); //convert to plain objects
         }
 
-        if(osu_api_scores.length > 0 || osu_alt_scores.length > 0) {
+        if (osu_api_scores.length > 0 || osu_alt_scores.length > 0) {
             //get all user ids
             const userIds = new Set();
             osu_api_scores.forEach(s => userIds.add(s.user_id));
@@ -874,7 +920,7 @@ router.all('/:beatmapId/scores/{:ruleset}', cache('1 hour'), async (req, res) =>
         } else {
             return res.status(404).json({ error: 'Scores not found' });
         }
-    }catch (error) {
+    } catch (error) {
         console.error('Error fetching beatmap scores:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
@@ -919,6 +965,27 @@ router.get('/:beatmapId', cache('1 hour'), async (req, res) => {
         }
     } catch (error) {
         console.error('Error fetching beatmap:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.get('/:beatmapId/max-statistics/:ruleset', cache('1 hour'), async (req, res) => {
+    const { beatmapId, ruleset } = req.params;
+    if (!beatmapId) {
+        return res.status(400).json({ error: 'Beatmap ID parameter is required' });
+    }
+
+    try {
+        const beatmapScores = await GetBeatmapScores(beatmapId, ruleset);
+        if (!beatmapScores || !beatmapScores.scores || beatmapScores.scores.length === 0) {
+            return res.status(404).json({ error: 'No scores found for the specified beatmap and ruleset' });
+        }
+        // const _score = beatmapScores.scores[0]; //we dont care which, just a score
+        //find first score with build_id set to some value, if none, just use first score
+        const _score = beatmapScores.scores.find(s => s.build_id && s.build_id > 0) || beatmapScores.scores[0];
+        return res.status(200).json(_score?.maximum_statistics || {});
+    } catch (error) {
+        console.error('Error fetching beatmap max statistics:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
 });

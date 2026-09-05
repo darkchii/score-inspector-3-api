@@ -1,10 +1,10 @@
 const express = require('express');
 const { GetReplay, GetScore } = require('../helpers/osuApiHelper');
-const apicache = require('apicache-plus');
+const cache = require('apicache-plus').middleware;
 const { FetchReplayProcessed } = require('../helpers/diffCalcHelper');
 const router = express.Router();
 
-router.get('/:scoreId', apicache('24 hours'), async (req, res) => {
+router.get('/:scoreId', cache('24 hours'), async (req, res) => {
     const { scoreId } = req.params;
 
     //returns octet-stream
@@ -26,7 +26,7 @@ router.get('/:scoreId', apicache('24 hours'), async (req, res) => {
     }
 });
 
-router.get('/:scoreId/processed', async (req, res) => {
+router.get('/:scoreId/processed', cache('24 hours'), async (req, res) => {
     const { scoreId } = req.params;
 
     //returns octet-stream

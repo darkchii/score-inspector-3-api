@@ -12,6 +12,7 @@ var routeSystem = require('./routeSystem');
 var routeReputation = require('./routeReputation');
 var routeVisitor = require('./routeVisitor');
 var routeAdmin = require('./routeAdmin');
+var routeExtension = require('./routeExtension');
 
 let routes = [
     {
@@ -69,6 +70,10 @@ let routes = [
     {
         path: '/admin',
         route: routeAdmin
+    },
+    {
+        path: '/extension',
+        route: routeExtension
     }
 ];
 

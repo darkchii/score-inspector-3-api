@@ -1,9 +1,12 @@
 const express = require('express');
 const { default: Sequelize } = require('@sequelize/core');
-const { InspectorStat, Databases } = require('../helpers/db');
+const { InspectorStat, Databases, InspectorActivityLog } = require('../helpers/db');
 const { getFullUsers } = require('../helpers/userHelper');
 const { OSU_SLUGS } = require('../helpers/osuHelper');
 const router = express.Router();
+const apicache = require('apicache-plus');
+const routeCache = apicache.newInstance();
+const cache = routeCache.middleware;
 
 const STAT_TYPE_CONFIGS = {
     clears: {
@@ -100,7 +103,7 @@ async function queryUserPosition(ruleset_id, date_start, date_end, select_clear,
 }
 
 const top_day_periods = ['today', 'yesterday', 'this_month', 'last_month', 'year', 'last_year'];
-router.get('/top-day/:ruleset', async (req, res) => {
+router.get('/top-day/:ruleset', cache('5 minutes'), async (req, res) => {
     const { ruleset } = req.params;
     let _ruleset = ruleset;
     //if ruleset is 'all', replace with 'total'
@@ -196,16 +199,15 @@ router.get('/top-day/:ruleset', async (req, res) => {
     }
 });
 
-router.get('/global-stats', async (req, res) => {
+router.get('/global-stats', cache('5 minutes'), async (req, res) => {
     try {
-        //get: beatmap_counts, score_counts, user_counts, team_counts
+        //get: beatmap_counts, score_counts, user_counts
         const data = await InspectorStat.findAll({
             where: {
                 metric: [
                     'beatmap_counts',
                     'score_counts',
                     'user_counts',
-                    'team_counts',
                     'reputation_counts'
                 ]
             }
@@ -226,7 +228,7 @@ router.get('/global-stats', async (req, res) => {
     }
 });
 
-router.get('/score-submissions/:ruleset', async (req, res) => {
+router.get('/score-submissions/:ruleset', cache('5 minutes'), async (req, res) => {
     const { ruleset } = req.params;
     let _ruleset = ruleset;
     if (ruleset === 'all') {
@@ -252,7 +254,7 @@ router.get('/score-submissions/:ruleset', async (req, res) => {
     }
 });
 
-router.get('/active-users', async (req, res) => {
+router.get('/active-users', cache('5 minutes'), async (req, res) => {
     try {
         const data = await InspectorStat.findOne({ where: { metric: 'active_users' } });
         if (!data || !data.data) {
@@ -262,6 +264,32 @@ router.get('/active-users', async (req, res) => {
             data: JSON.parse(data.data),
             last_updated: data.last_updated
         });
+    } catch (err) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.get('/activity-logs', cache('5 minutes'), async (req, res) => {
+    try {
+        const logs = await InspectorActivityLog.findAll({
+            order: [['created_at', 'DESC']],
+            limit: 10,
+        });
+
+        //try to get full user data for each user_id present, add add it to log.user
+        const userIds = logs.map(log => log.data?.user_id).filter(id => id);
+        const users = await getFullUsers(userIds);
+        const userMap = {};
+        for (const user of users) {
+            userMap[user.osuApi?.id || user.osuAlternative?.user_id] = user;
+        }
+
+        for (const log of logs) {
+            const userId = log.data?.user_id;
+            log.data.user = userMap[userId] || null;
+        }
+
+        res.json(logs);
     } catch (err) {
         res.status(500).json({ error: 'Internal server error' });
     }

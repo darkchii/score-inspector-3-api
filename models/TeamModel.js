@@ -1,22 +1,14 @@
 const { DataTypes } = require("@sequelize/core");
 
 const TeamModel = (db) => db.define('Team', {
-    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    name: { type: DataTypes.STRING },
-    short_name: { type: DataTypes.STRING },
-    flag_url: { type: DataTypes.STRING },
-    members: { type: DataTypes.INTEGER },
-    last_updated: { type: DataTypes.DATE },
-    deleted: { type: DataTypes.BOOLEAN, defaultValue: false },
-    last_scraped: { type: DataTypes.DATE },
-    applications_open: { type: DataTypes.BOOLEAN, defaultValue: false },
-    header_url: { type: DataTypes.STRING },
-    url: { type: DataTypes.STRING },
+    id: { type: DataTypes.INTEGER, primaryKey: true },
     color: { type: DataTypes.STRING },
-    created_at: { type: DataTypes.DATE }
+    youtube_id: { type: DataTypes.STRING },
+    spotify_id: { type: DataTypes.STRING },
+    discord_invite_id: { type: DataTypes.STRING },
+    last_updated: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
 }, {
-    tableName: 'osu_teams',
+    tableName: 'teams',
     timestamps: false
 });
-
-module.exports = TeamModel;
+module.exports.TeamModel = TeamModel;

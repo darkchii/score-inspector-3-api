@@ -1,10 +1,13 @@
 const express = require('express');
-const { AltBeatmapLive, AltScoreLive, AltUserLive, Team, TeamStats, AltUserStat, getScoreRankModelByRuleset } = require('../helpers/db');
+const { AltBeatmapLive, AltScoreLive, AltUserLive, AltUserStat, getScoreRankModelByRuleset } = require('../helpers/db');
 const { FetchDifficultyData, FetchDifficultyDetailed } = require('../helpers/diffCalcHelper');
 const { OSU_SLUGS } = require('../helpers/osuHelper');
 const { GetReplay } = require('../helpers/osuApiHelper');
 const { getFullUsers } = require('../helpers/userHelper');
 const { Op, default: Sequelize } = require('@sequelize/core');
+const apicache = require('apicache-plus');
+const routeCache = apicache.newInstance();
+const cache = routeCache.middleware;
 const router = express.Router();
 
 router.get('/score-rank/info/:ruleset', async (req, res) => {
@@ -44,7 +47,7 @@ const SCORE_RANK_LIMIT = 50;
 const SCORE_RANK_VALID_STATS = ['rank', 'gained_score', 'gained_rank'];
 //gained stats need to compare with old_rank and old_ranked_score to calculate the gain
 //gained_rank would be old_rank - rank, gained_score would be ranked_score - old_ranked_score
-router.get('/score-rank/:ruleset/:stat/:date{/:page}', async (req, res) => {
+router.get('/score-rank/:ruleset/:stat/:date{/:page}', cache('1 hour'), async (req, res) => {
     const { ruleset, stat, date, page } = req.params;
 
     //validate ruleset, no 'all' allowed here
@@ -223,13 +226,6 @@ const LEADERBOARDS = {
         selector: '{ruleset}_play_count',
         table: AltUserLive
     },
-    'team_play_count': {
-        selector: 'osu_teams_ruleset.play_count',
-        table: Team,
-        ruleset_is_index: true,
-        where: [`mode in ({ruleset}) and deleted = false`],
-        join: [[TeamStats, 'id', 'id']]
-    },
     'completion': {
         table: AltUserStat,
         //bit more complex, need so select
@@ -318,109 +314,11 @@ const LEADERBOARDS = {
         selector: 'stars',
         ruleset_is_index: true,
         where: ['mode in ({ruleset_id})'],
-    },
-    'team_id': {
-        table: Team,
-        selector: 'osu_teams.id',
-        ruleset_is_index: true,
-        where: ['mode in ({ruleset})', 'deleted = false'],
-        join: [[TeamStats, 'osu_teams.id', 'id']]
-    },
-    'team_members': {
-        table: Team,
-        selector: 'osu_teams.members',
-        ruleset_is_index: true,
-        where: ['mode in ({ruleset})', 'deleted = false'],
-        join: [[TeamStats, 'osu_teams.id', 'id']]
-    },
-    'team_play_count': {
-        table: Team,
-        selector: 'osu_teams_ruleset.play_count',
-        ruleset_is_index: true,
-        where: ['mode in ({ruleset})', 'deleted = false'],
-        join: [[TeamStats, 'osu_teams.id', 'id']]
-    },
-    'team_ranked_score': {
-        table: Team,
-        selector: 'osu_teams_ruleset.ranked_score',
-        ruleset_is_index: true,
-        where: ['mode in ({ruleset})', 'deleted = false'],
-        join: [[TeamStats, 'osu_teams.id', 'id']]
-    },
-    'team_average_score': {
-        table: Team,
-        selector: 'osu_teams_ruleset.average_score',
-        ruleset_is_index: true,
-        where: ['mode in ({ruleset})', 'deleted = false'],
-        join: [[TeamStats, 'osu_teams.id', 'id']]
-    },
-    'team_performance': {
-        table: Team,
-        selector: 'osu_teams_ruleset.performance',
-        ruleset_is_index: true,
-        where: ['mode in ({ruleset})', 'deleted = false'],
-        join: [[TeamStats, 'osu_teams.id', 'id']]
-    },
-    'team_clears': {
-        table: Team,
-        selector: 'osu_teams_ruleset.clears',
-        ruleset_is_index: true,
-        where: ['mode in ({ruleset})', 'deleted = false'],
-        join: [[TeamStats, 'osu_teams.id', 'id']]
-    },
-    'team_total_ss': {
-        table: Team,
-        selector: 'osu_teams_ruleset.total_ss',
-        ruleset_is_index: true,
-        where: ['mode in ({ruleset})', 'deleted = false'],
-        join: [[TeamStats, 'osu_teams.id', 'id']]
-    },
-    'team_total_s': {
-        table: Team,
-        selector: 'osu_teams_ruleset.total_s',
-        ruleset_is_index: true,
-        where: ['mode in ({ruleset})', 'deleted = false'],
-        join: [[TeamStats, 'osu_teams.id', 'id']]
-    },
-    'team_total_a': {
-        table: Team,
-        selector: 'osu_teams_ruleset.total_a',
-        ruleset_is_index: true,
-        where: ['mode in ({ruleset})', 'deleted = false'],
-        join: [[TeamStats, 'osu_teams.id', 'id']]
-    },
-    'team_total_score': {
-        table: Team,
-        selector: 'osu_teams_ruleset.total_score',
-        ruleset_is_index: true,
-        where: ['mode in ({ruleset})', 'deleted = false'],
-        join: [[TeamStats, 'osu_teams.id', 'id']]
-    },
-    'team_play_time': {
-        table: Team,
-        selector: 'osu_teams_ruleset.play_time',
-        ruleset_is_index: true,
-        where: ['mode in ({ruleset})', 'deleted = false'],
-        join: [[TeamStats, 'osu_teams.id', 'id']]
-    },
-    'team_total_hits': {
-        table: Team,
-        selector: 'osu_teams_ruleset.total_hits',
-        ruleset_is_index: true,
-        where: ['mode in ({ruleset})', 'deleted = false'],
-        join: [[TeamStats, 'osu_teams.id', 'id']]
-    },
-    'team_replays_watched': {
-        table: Team,
-        selector: 'osu_teams_ruleset.replays_watched',
-        ruleset_is_index: true,
-        where: ['mode in ({ruleset})', 'deleted = false'],
-        join: [[TeamStats, 'osu_teams.id', 'id']]
     }
 }
 
 const DEFAULT_LEADERBOARD_LIMIT = 50;
-router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) => {
+router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', cache('1 hour'), async (req, res) => {
     let { ruleset, stat, page, dir, limit, country } = req.params;
 
     if (country && !/^[a-zA-Z]{2}$/.test(country)) {
@@ -478,9 +376,8 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) 
             baseSelectors = 'userstats.user_id, ';
         } else if (leaderboardDef.table === AltBeatmapLive) {
             baseSelectors = 'beatmap_id, title, artist, mapper, ';
-        } else if (leaderboardDef.table === Team) {
-            baseSelectors = 'osu_teams.id, name, short_name, ';
         }
+        
 
         let country_condition = '';
         if (country && leaderboardDef.table !== AltBeatmapLive) {
@@ -551,34 +448,6 @@ router.all('/:ruleset/:stat/:page{/:dir}{/:limit}{/:country}', async (req, res) 
 
             leaderboard = data.map(entry => ({
                 beatmap: beatmapMap[entry.beatmap_id] || entry,
-                value: entry.res_value,
-                difference_value: entry.difference_value
-            }));
-        } else if (leaderboardDef.table === Team) {
-            const teamIds = data.map(d => d.id);
-            const teams = await Team.findAll({
-                where: { id: { [Op.in]: teamIds } },
-                include: [TeamStats]
-            });
-            //each team has an array of stats (team.teamStats).
-            //the selected mode needs to merge into the parent object, and then remove teamStats
-            let _teams = [];
-            teams.forEach(t => {
-                const stats = t.teamStats.find(s => s.mode === ruleset);
-                if (stats) {
-                    const teamData = t.toJSON();
-                    delete teamData.teamStats;
-                    _teams.push({ ...teamData, ...stats.toJSON() });
-                }
-            });
-
-            const teamMap = {};
-            _teams.forEach(t => {
-                teamMap[t.id] = t;
-            });
-
-            leaderboard = data.map(entry => ({
-                team: teamMap[entry.id] || entry,
                 value: entry.res_value,
                 difference_value: entry.difference_value
             }));

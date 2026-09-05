@@ -3,6 +3,9 @@ const { AltBeatmapLive } = require('../helpers/db');
 const { FetchDifficultyData, FetchDifficultyDetailed } = require('../helpers/diffCalcHelper');
 const { OSU_SLUGS } = require('../helpers/osuHelper');
 const { GetReplay } = require('../helpers/osuApiHelper');
+const apicache = require('apicache-plus');
+const routeCache = apicache.newInstance();
+const cache = routeCache.middleware;
 const router = express.Router();
 
 function parseRequest(params, body) {
@@ -35,7 +38,7 @@ function parseRequest(params, body) {
     return { actualBeatmapId, rulesetId, mods, scoreId };
 }
 
-router.all('/:rulesetOrBeatmapId{/:beatmapId}/detailed', async (req, res) => {
+router.all('/:rulesetOrBeatmapId{/:beatmapId}/detailed', cache('1 hour'), async (req, res) => {
     let actualBeatmapId, rulesetId, mods;
     try {
         ({ actualBeatmapId, rulesetId, mods } = parseRequest(req.params, req.body));
@@ -58,7 +61,7 @@ router.all('/:rulesetOrBeatmapId{/:beatmapId}/detailed', async (req, res) => {
     }
 })
 
-router.all('/:rulesetOrBeatmapId{/:beatmapId}', async (req, res) => {
+router.all('/:rulesetOrBeatmapId{/:beatmapId}', cache('1 hour'), async (req, res) => {
     let actualBeatmapId, rulesetId, mods;
     try {
         ({ actualBeatmapId, rulesetId, mods } = parseRequest(req.params, req.body));

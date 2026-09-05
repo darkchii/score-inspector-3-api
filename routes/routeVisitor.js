@@ -54,6 +54,12 @@ router.post('/', async (req, res) => {
             return res.status(404).json({ error: 'One or both users not found in osu! API' });
         }
 
+        //check if target user exists on osu!alternative (user.osuAlternative)
+        const targetUser = users.find(u => u.osuApi?.id == targetId);
+        if (!targetUser || !targetUser.osuAlternative) {
+            return res.status(404).json({ error: 'Target user not found in osu!alternative' });
+        }
+
         //if there's an entry from the last 30 minutes, update the timestamp
         //essentially limiting it to 1 unique visit per 30 minutes
         const existingVisit = await InspectorPlayerVisitor.findOne({

@@ -4,21 +4,21 @@ const { PostgresDialect } = require('@sequelize/postgres');
 const AltUserLiveModel = require('../models/AltUserLiveModel');
 const AltBeatmapLiveModel = require('../models/AltBeatmapLiveModel');
 const AltScoreLiveModel = require('../models/AltScoreLiveModel');
-const TeamModel = require('../models/TeamModel');
 const AltRegistrationModel = require('../models/AltRegistrationModel');
 const InspectorCompletionistModel = require('../models/InspectorCompletionistModel');
 const InspectorRoleModel = require('../models/InspectorRoleModel');
 const InspectorUserRoleModel = require('../models/InspectorUserRoleModel');
 const AltBeatmapPackModel = require('../models/AltBeatmapPackModel');
 const AltUserStatModel = require('../models/AltUserStatModel');
-const TeamMemberModel = require('../models/TeamMemberModel');
-const TeamStatsModel = require('../models/TeamStatsModel');
 const { InspectorStatModel } = require('../models/InspectorStatModel');
 const InspectorPlayerReputationModel = require('../models/InspectorPlayerReputationModel');
 const InspectorNotificationModel = require('../models/InspectorNotificationModel');
 const { InspectorScoreRankModel } = require('../models/InspectorScoreRankModel');
 const InspectorPlayerVisitorModel = require('../models/InspectorPlayerVisitorModel');
 const InspectorBeatmapMediaModel = require('../models/InspectorBeatmapMediaModel');
+const { TeamModel } = require('../models/TeamModel');
+const AltScoreAttributeModel = require('../models/AltScoreAttributeModel');
+const InspectorActivityLogModel = require('../models/InspectorActivityLogModel');
 require('dotenv').config();
 
 let databases = {
@@ -26,20 +26,6 @@ let databases = {
         {
             dialect: MariaDbDialect,
             database: process.env.MYSQL_DB,
-            user: process.env.MYSQL_USER,
-            password: process.env.MYSQL_PASS,
-            host: process.env.MYSQL_HOST,
-            timezone: 'Europe/Amsterdam',
-            logging: false,
-            retry: {
-                max: 10
-            }
-        }
-    ),
-    inspector_teams: new Sequelize(
-        {
-            dialect: MariaDbDialect,
-            database: process.env.MYSQL_DB_TEAM,
             user: process.env.MYSQL_USER,
             password: process.env.MYSQL_PASS,
             host: process.env.MYSQL_HOST,
@@ -94,6 +80,7 @@ const AltUserStat = AltUserStatModel(databases.osuAlt);
 const AltBeatmapLive = AltBeatmapLiveModel(databases.osuAlt);
 const AltBeatmapPack = AltBeatmapPackModel(databases.osuAlt);
 const AltScoreLive = AltScoreLiveModel(databases.osuAlt);
+const AltScoreAttributes = AltScoreAttributeModel(databases.osuAlt);
 const AltRegistration = AltRegistrationModel(databases.osuAlt);
 
 const InspectorCompletionist = InspectorCompletionistModel(databases.inspector);
@@ -113,9 +100,9 @@ const InspectorManiaScoreRank = InspectorScoreRankModel(databases.inspector, 'sc
 
 const InspectorBeatmapMedia = InspectorBeatmapMediaModel(databases.inspector);
 
-const Team = TeamModel(databases.inspector_teams);
-const TeamMember = TeamMemberModel(databases.inspector_teams);
-const TeamStats = TeamStatsModel(databases.inspector_teams);
+const InspectorTeam = TeamModel(databases.inspector);
+
+const InspectorActivityLog = InspectorActivityLogModel(databases.inspector);
 
 InspectorUserRole.hasOne(InspectorRole, { foreignKey: 'id', sourceKey: 'role_id' });
 
@@ -124,11 +111,8 @@ AltUserLive.hasMany(AltUserStat, { foreignKey: 'user_id', sourceKey: 'user_id' }
 AltScoreLive.belongsTo(AltUserLive, { foreignKey: 'user_id_fk', targetKey: 'user_id' });
 AltUserStat.belongsTo(AltUserLive, { foreignKey: 'user_id', targetKey: 'user_id' });
 
-TeamMember.belongsTo(Team, { foreignKey: 'team_id', targetKey: 'id' });
-Team.hasMany(TeamMember, { foreignKey: 'team_id', sourceKey: 'id' });
-
-TeamStats.belongsTo(Team, { foreignKey: 'id', targetKey: 'id' });
-Team.hasMany(TeamStats, { foreignKey: 'id', sourceKey: 'id' });
+AltScoreAttributes.belongsTo(AltScoreLive, { foreignKey: 'score_id', targetKey: 'id' });
+AltScoreLive.hasOne(AltScoreAttributes, { foreignKey: 'score_id', sourceKey: 'id' });
 
 module.exports.CheckConnection = CheckConnection;
 module.exports.AltUserLive = AltUserLive;
@@ -136,6 +120,7 @@ module.exports.AltUserStat = AltUserStat;
 module.exports.AltBeatmapLive = AltBeatmapLive;
 module.exports.AltBeatmapPack = AltBeatmapPack;
 module.exports.AltScoreLive = AltScoreLive;
+module.exports.AltScoreAttributes = AltScoreAttributes;
 module.exports.AltRegistration = AltRegistration;
 
 module.exports.InspectorCompletionist = InspectorCompletionist;
@@ -154,23 +139,27 @@ module.exports.InspectorManiaScoreRank = InspectorManiaScoreRank;
 
 module.exports.InspectorBeatmapMedia = InspectorBeatmapMedia;
 
-module.exports.Team = Team;
-module.exports.TeamMember = TeamMember;
-module.exports.TeamStats = TeamStats;
+module.exports.InspectorTeam = InspectorTeam;
+
+module.exports.InspectorActivityLog = InspectorActivityLog;
 
 function getScoreRankModelByRuleset(ruleset) {
     switch (ruleset) {
         case 0:
+        case '0':
         case 'osu':
             return InspectorOsuScoreRank;
         case 1:
+        case '1':
         case 'taiko':
             return InspectorTaikoScoreRank;
         case 2:
+        case '2':
         case 'fruits':
         case 'catch':
             return InspectorCatchScoreRank;
         case 3:
+        case '3':
         case 'mania':
             return InspectorManiaScoreRank;
         default:
